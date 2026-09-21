@@ -140,9 +140,14 @@ export function ShopWhatsAppTab({ shopId }: { shopId: string }) {
   if (isError) {
     return (
       <ErrorState
-        title="Could not load WhatsApp"
-        description={error instanceof Error ? error.message : "Unknown error"}
-        onRetry={() => refetch()}
+        message={
+          error instanceof Error
+            ? error.message
+            : "Could not load WhatsApp"
+        }
+        onRetry={() => {
+          void refetch();
+        }}
       />
     );
   }
