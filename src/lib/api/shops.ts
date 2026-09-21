@@ -37,6 +37,12 @@ import type {
   ShopStatus,
   TriggerShopLogoutResponse,
 } from "@/types/api";
+import type {
+  ConnectShopWhatsAppInput,
+  SetShopWhatsAppSenderInput,
+  ShopPageAccessStatus,
+  ShopWhatsAppStatus,
+} from "@/types/shop-whatsapp";
 
 export function listShops(params?: {
   page?: number;
@@ -521,3 +527,72 @@ export function putPromotion(shopId: string, input: Record<string, unknown>) {
     body: JSON.stringify(input),
   });
 }
+
+export function getShopWhatsApp(shopId: string) {
+  return apiFetch<ShopWhatsAppStatus>(`/v2/shops/${shopId}/whatsapp`);
+}
+
+export function connectShopWhatsApp(
+  shopId: string,
+  input: ConnectShopWhatsAppInput,
+) {
+  return apiFetch<ShopWhatsAppStatus>(`/v2/shops/${shopId}/whatsapp/connect`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function disconnectShopWhatsApp(shopId: string) {
+  return apiFetch<ShopWhatsAppStatus>(
+    `/v2/shops/${shopId}/whatsapp/disconnect`,
+    { method: "PUT" },
+  );
+}
+
+export function setShopWhatsAppEnabled(shopId: string, enabled: boolean) {
+  return apiFetch<ShopWhatsAppStatus>(`/v2/shops/${shopId}/whatsapp/enabled`, {
+    method: "PATCH",
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+export function setShopWhatsAppTransactional(
+  shopId: string,
+  transactionalEnabled: boolean,
+) {
+  return apiFetch<ShopWhatsAppStatus>(
+    `/v2/shops/${shopId}/whatsapp/transactional`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ transactional_enabled: transactionalEnabled }),
+    },
+  );
+}
+
+export function setShopWhatsAppSender(
+  shopId: string,
+  input: SetShopWhatsAppSenderInput,
+) {
+  return apiFetch<ShopWhatsAppStatus>(`/v2/shops/${shopId}/whatsapp/sender`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getShopPageAccess(shopId: string) {
+  return apiFetch<ShopPageAccessStatus>(`/v2/shops/${shopId}/page-access`);
+}
+
+export function setShopPageAccessPassword(
+  shopId: string,
+  input: { password?: string; clear?: boolean },
+) {
+  return apiFetch<ShopPageAccessStatus>(
+    `/v2/shops/${shopId}/page-access/password`,
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+    },
+  );
+}
+

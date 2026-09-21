@@ -9,6 +9,8 @@ import {
   listAllShops,
   listShopProducts,
   listShops,
+  getShopWhatsApp,
+  getShopPageAccess,
 } from "@/lib/api/shops";
 import { getRider, listRiders } from "@/lib/api/riders";
 import {
@@ -52,6 +54,9 @@ export const shopKeys = {
   posLink: (shopId: string) => [...shopKeys.all, "pos-link", shopId] as const,
   syncStatus: (shopId: string) =>
     [...shopKeys.all, "sync-status", shopId] as const,
+  whatsapp: (shopId: string) => [...shopKeys.all, "whatsapp", shopId] as const,
+  pageAccess: (shopId: string) =>
+    [...shopKeys.all, "page-access", shopId] as const,
 };
 
 export function shopsListQuery(params: ShopListParams) {
@@ -194,5 +199,23 @@ export function shopSyncStatusQuery(shopId: string) {
     queryFn: () => getSyncStatus(shopId),
     enabled: Boolean(shopId),
     retry: false,
+  });
+}
+
+export function shopWhatsAppQuery(shopId: string) {
+  return queryOptions({
+    queryKey: shopKeys.whatsapp(shopId),
+    queryFn: () => getShopWhatsApp(shopId),
+    enabled: Boolean(shopId),
+    staleTime: 15_000,
+  });
+}
+
+export function shopPageAccessQuery(shopId: string) {
+  return queryOptions({
+    queryKey: shopKeys.pageAccess(shopId),
+    queryFn: () => getShopPageAccess(shopId),
+    enabled: Boolean(shopId),
+    staleTime: 15_000,
   });
 }

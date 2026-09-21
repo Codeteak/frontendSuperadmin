@@ -19,6 +19,7 @@ import { ShopLocationModal } from "@/components/shops/shop-location-modal";
 import { ShopProfileHero } from "@/components/shops/shop-profile-hero";
 import { ShopEcomTab } from "@/components/shops/shop-ecom-tab";
 import { ShopPosTab } from "@/components/shops/shop-pos-tab";
+import { ShopWhatsAppTab } from "@/components/shops/shop-whatsapp-tab";
 import {
   ShopConfirmDialog,
   type ShopConfirmPhase,
@@ -133,6 +134,7 @@ const TABS = [
   "riders",
   "pickers",
   "pos",
+  "whatsapp",
 ] as const;
 
 type Tab = (typeof TABS)[number];
@@ -148,6 +150,7 @@ const TAB_LABELS: Record<Tab, string> = {
   riders: "Riders",
   pickers: "Pickers",
   pos: "POS",
+  whatsapp: "WhatsApp",
 };
 
 function ShopSection({
@@ -561,6 +564,7 @@ export default function ShopDetailPage() {
         {tab === "riders" ? <RidersTab shopId={shopId} /> : null}
         {tab === "pickers" ? <PickersTab shopId={shopId} /> : null}
         {tab === "pos" ? <ShopPosTab shopId={shopId} /> : null}
+        {tab === "whatsapp" ? <ShopWhatsAppTab shopId={shopId} /> : null}
       </div>
 
       {confirmConfig ? (
