@@ -1620,7 +1620,7 @@ function FeaturesTab({
           <FeatureToggleRow
             id="feat_nightly_stock_reset_enabled"
             label="Nightly stock reset"
-            description="At 13:00 Asia/Dubai, restore all out-of-stock products to in stock for this shop."
+            description="At 03:00 Asia/Dubai, restore all out-of-stock products to in stock for this shop."
             checked={form.nightly_stock_reset_enabled}
             invalid={isHighlighted("nightly_stock_reset_enabled")}
             error={fieldErrors.nightly_stock_reset_enabled}
