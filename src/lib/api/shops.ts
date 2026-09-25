@@ -125,6 +125,7 @@ export function createShop(input: CreateShopInput) {
     "ecom_order_confirmation_enabled",
     "scheduled_order",
     "pre_booking_enabled",
+    "nightly_stock_reset_enabled",
     "merge_order",
     "return_option",
     "customer_ticket",
@@ -294,6 +295,7 @@ export function shopFeatureFlagsFromDetail(
     | "ecom_order_confirmation_enabled"
     | "scheduled_order"
     | "pre_booking_enabled"
+    | "nightly_stock_reset_enabled"
     | "merge_order"
     | "venue_management_enabled"
     | "qr_ordering_enabled"
@@ -312,6 +314,7 @@ export function shopFeatureFlagsFromDetail(
     ),
     scheduled_order: Boolean(f.scheduled_order ?? shop.scheduled_order),
     pre_booking_enabled: Boolean(f.pre_booking_enabled ?? shop.pre_booking_enabled),
+    nightly_stock_reset_enabled: Boolean(f.nightly_stock_reset_enabled ?? shop.nightly_stock_reset_enabled),
     merge_order: Boolean(f.merge_order ?? shop.merge_order),
     return_option: Boolean(f.return_option),
     customer_ticket: Boolean(f.customer_ticket),

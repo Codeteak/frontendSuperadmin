@@ -33,6 +33,7 @@ export const INITIAL_CREATE_SHOP_FORM: CreateShopFormValues = {
   ecom_order_confirmation_enabled: false,
   scheduled_order: false,
   pre_booking_enabled: false,
+  nightly_stock_reset_enabled: false,
   merge_order: false,
   return_option: false,
   customer_ticket: false,

@@ -26,6 +26,7 @@ export type CreateShopFormValues = {
   ecom_order_confirmation_enabled: boolean;
   scheduled_order: boolean;
   pre_booking_enabled: boolean;
+  nightly_stock_reset_enabled: boolean;
   merge_order: boolean;
   return_option: boolean;
   customer_ticket: boolean;
@@ -424,6 +425,7 @@ export function buildCreateShopPayload(
       : false,
     scheduled_order: form.scheduled_order,
     pre_booking_enabled: form.pre_booking_enabled,
+      nightly_stock_reset_enabled: form.nightly_stock_reset_enabled,
     merge_order: form.merge_order,
     return_option: form.return_option,
     customer_ticket: ecom_enabled ? form.customer_ticket : false,

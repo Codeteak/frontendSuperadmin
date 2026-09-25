@@ -24,6 +24,7 @@ export const SHOP_FIELD_LABELS: Record<string, string> = {
   marketplace_enabled: "Marketplace enabled",
   scheduled_order: "Scheduled orders",
   pre_booking_enabled: "Pre-booking",
+  nightly_stock_reset_enabled: "Nightly stock reset",
   merge_order: "Merge orders",
   return_option: "Return option",
   customer_ticket: "Customer tickets",

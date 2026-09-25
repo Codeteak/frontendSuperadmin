@@ -1194,6 +1194,7 @@ function readShopFeatures(shop: ShopDetail): Required<
     | "ecom_order_confirmation_enabled"
     | "scheduled_order"
     | "pre_booking_enabled"
+    | "nightly_stock_reset_enabled"
     | "merge_order"
     | "return_option"
     | "customer_ticket"
@@ -1220,6 +1221,7 @@ function readShopFeatures(shop: ShopDetail): Required<
     ),
     scheduled_order: Boolean(f.scheduled_order ?? shop.scheduled_order),
     pre_booking_enabled: Boolean(f.pre_booking_enabled ?? shop.pre_booking_enabled),
+    nightly_stock_reset_enabled: Boolean(f.nightly_stock_reset_enabled ?? shop.nightly_stock_reset_enabled),
     merge_order: Boolean(f.merge_order ?? shop.merge_order),
     return_option: Boolean(f.return_option),
     customer_ticket: Boolean(f.customer_ticket),
@@ -1478,6 +1480,7 @@ function FeaturesTab({
           : false,
         scheduled_order: form.scheduled_order,
         pre_booking_enabled: form.pre_booking_enabled,
+      nightly_stock_reset_enabled: form.nightly_stock_reset_enabled,
         merge_order: form.merge_order,
         return_option: form.return_option,
         customer_ticket: ecomEnabled ? form.customer_ticket : false,
@@ -1613,6 +1616,15 @@ function FeaturesTab({
             invalid={isHighlighted("pre_booking_enabled")}
             error={fieldErrors.pre_booking_enabled}
             onChange={(v) => setFlag("pre_booking_enabled", v)}
+          />
+          <FeatureToggleRow
+            id="feat_nightly_stock_reset_enabled"
+            label="Nightly stock reset"
+            description="At 13:00 Asia/Dubai, restore all out-of-stock products to in stock for this shop."
+            checked={form.nightly_stock_reset_enabled}
+            invalid={isHighlighted("nightly_stock_reset_enabled")}
+            error={fieldErrors.nightly_stock_reset_enabled}
+            onChange={(v) => setFlag("nightly_stock_reset_enabled", v)}
           />
           <FeatureToggleRow
             id="feat_merge_order"

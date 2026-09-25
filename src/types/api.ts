@@ -30,6 +30,7 @@ export type ShopFeatures = {
   return_option?: boolean;
   scheduled_order?: boolean;
   pre_booking_enabled?: boolean;
+  nightly_stock_reset_enabled?: boolean;
   merge_order?: boolean;
   customer_ticket?: boolean;
   integration_enabled?: boolean;
@@ -80,6 +81,7 @@ export type ShopListItem = {
   ecom_order_confirmation_enabled?: boolean;
   scheduled_order?: boolean;
   pre_booking_enabled?: boolean;
+  nightly_stock_reset_enabled?: boolean;
   merge_order?: boolean;
   venue_management_enabled?: boolean;
   qr_ordering_enabled?: boolean;
@@ -103,6 +105,7 @@ export type CreateShopInput = {
   ecom_order_confirmation_enabled?: boolean;
   scheduled_order?: boolean;
   pre_booking_enabled?: boolean;
+  nightly_stock_reset_enabled?: boolean;
   merge_order?: boolean;
   return_option?: boolean;
   customer_ticket?: boolean;
@@ -251,6 +254,7 @@ export type PatchShopInput = {
   return_option?: boolean;
   scheduled_order?: boolean;
   pre_booking_enabled?: boolean;
+  nightly_stock_reset_enabled?: boolean;
   merge_order?: boolean;
   customer_ticket?: boolean;
   venue_management_enabled?: boolean;

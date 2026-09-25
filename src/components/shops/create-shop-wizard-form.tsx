@@ -896,6 +896,7 @@ export function CreateShopWizard() {
     },
     { key: "scheduled_order", label: "Scheduled orders" },
     { key: "pre_booking_enabled", label: "Pre-booking" },
+    { key: "nightly_stock_reset_enabled", label: "Nightly stock reset" },
     { key: "merge_order", label: "Merge orders" },
     { key: "return_option", label: "Return option" },
     { key: "customer_ticket", label: "Customer tickets" },
@@ -1287,6 +1288,13 @@ export function CreateShopWizard() {
                 description="Enables food pre-booking events and orders in the shop DMS and customer storefront."
                 checked={form.pre_booking_enabled}
                 onChange={(v) => update("pre_booking_enabled", v)}
+              />
+              <FeatureToggleRow
+                id="nightly_stock_reset_enabled"
+                label="Nightly stock reset"
+                description="At 13:00 Asia/Dubai, restore all out-of-stock products to in stock for this shop."
+                checked={form.nightly_stock_reset_enabled}
+                onChange={(v) => update("nightly_stock_reset_enabled", v)}
               />
               <FeatureToggleRow
                 id="merge_order"
