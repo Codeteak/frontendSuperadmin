@@ -901,6 +901,26 @@ export const POS_SHOP_PLAYBOOK: Record<string, PosPlaybookDef> = {
   ),
 };
 
+export function pullShopPlaybook(providerName: string): PosPlaybookDef {
+  const name = providerName.trim() || "POS";
+  return shopPlaybook(
+    `Shop POS — ${name}`,
+    `Enable Integration and rotate the token (that plaintext is link_token), then attach the ${name} template. The till links with POST /api/v1/pos/links and polls /api/v1/pos.`,
+    [
+      {
+        title:
+          "Features → Integration → create/rotate token → copy as link_token",
+      },
+      {
+        title: `Give link_token to ${name}; point base URL at DMS /api/v1/pos`,
+      },
+      { title: "POS tab → select that template → Save" },
+      { title: "Confirm the till links (POST /pos/links) and can pull orders" },
+    ],
+    [LANE_EXAMPLES[1]!],
+  );
+}
+
 export const POS_SHOP_FALLBACK_PLAYBOOK: PosPlaybookDef = {
   title: "Shop POS — pick a template, then read 5Ws",
   description:

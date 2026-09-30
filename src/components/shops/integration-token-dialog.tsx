@@ -22,8 +22,10 @@ type IntegrationTokenDialogProps = {
   token: string;
   /** First-time enable vs rotate re-issue */
   mode?: "created" | "rotated";
-  /** When shop uses / will use Saleculator pull lane */
+  /** When the till links with POST /api/v1/pos/links */
   saleculatorLinkToken?: boolean;
+  /** Shown in the link_token copy. Saleculator stays "Saleculator". */
+  deviceLinkName?: string;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -49,10 +51,12 @@ export function IntegrationTokenDialog({
   token,
   mode = "created",
   saleculatorLinkToken = false,
+  deviceLinkName,
   onOpenChange,
 }: IntegrationTokenDialogProps) {
   const [downloaded, setDownloaded] = useState(false);
   const isRotated = mode === "rotated";
+  const linkName = deviceLinkName?.trim() || "Saleculator";
 
   function handleDownload() {
     downloadTokenCsv(shopId, token);
@@ -92,7 +96,7 @@ export function IntegrationTokenDialog({
                 ? "A new plaintext token was issued and the previous token is now invalid. Copy or download it now — it will not be shown again."
                 : "This plaintext token is shown only once. Copy or download it now — it will not be shown again and is not stored in this panel."}
               {saleculatorLinkToken
-                ? " For Saleculator, paste this value as the device link_token (POST /api/v1/pos/links)."
+                ? ` For ${linkName}, paste this value as the device link_token (POST /api/v1/pos/links).`
                 : null}
             </DialogDescription>
           </DialogHeader>
@@ -108,7 +112,7 @@ export function IntegrationTokenDialog({
 
           {saleculatorLinkToken ? (
             <div className="mt-4 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-sm">
-              <p className="font-medium">Saleculator link_token</p>
+              <p className="font-medium">{linkName} link_token</p>
               <p className="mt-1 text-muted-foreground">
                 Device links with{" "}
                 <code className="text-xs">POST /api/v1/pos/links</code> using

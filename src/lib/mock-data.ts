@@ -43,6 +43,8 @@ import { siteConfig } from "@/config/site";
 import {
   defaultPosTemplateConfig,
   isPosProvider,
+  isPullPosProfile,
+  laneForProfile,
   laneForProvider,
   POS_DEFAULT_CAPABILITIES,
   POS_DEFAULT_EVENTS,
@@ -1489,20 +1491,31 @@ export async function mockCreatePosTemplate(
       },
     });
   }
-  const provider = isPosProvider(input.provider) ? input.provider : "generic";
+  const rawProvider = String(input.provider ?? "").trim().toLowerCase();
+  const pull = isPullPosProfile(rawProvider, String(input.connector_type ?? ""));
+  const provider = isPosProvider(rawProvider)
+    ? rawProvider
+    : pull
+      ? rawProvider
+      : "generic";
+  const knownProvider: PosProvider = isPosProvider(provider)
+    ? provider
+    : pull
+      ? "saleculator"
+      : "generic";
   const config = input.config;
   const capabilities =
     (config.capabilities as PosTemplate["capabilities"]) ??
-    POS_DEFAULT_CAPABILITIES[provider];
+    POS_DEFAULT_CAPABILITIES[knownProvider];
   const events =
-    (config.events as PosTemplate["events"]) ?? POS_DEFAULT_EVENTS[provider];
+    (config.events as PosTemplate["events"]) ?? POS_DEFAULT_EVENTS[knownProvider];
   const created: PosTemplate = {
     id: Math.max(0, ...mockPosTemplates.map((t) => Number(t.id))) + 1,
     name: input.name,
     provider,
     version: input.version,
     connector_type: input.connector_type,
-    lane: laneForProvider(provider),
+    lane: laneForProfile(provider, String(input.connector_type ?? "")),
     description: input.description ?? null,
     is_system: Boolean(input.is_system),
     is_active: input.is_active !== false,
@@ -1570,18 +1583,19 @@ export async function mockPatchPosTemplate(
 
 export async function mockClonePosTemplate(id: string | number) {
   const source = await mockGetPosTemplate(id);
-  const provider = isPosProvider(source.provider)
-    ? source.provider
-    : "generic";
   return mockCreatePosTemplate({
     name: `${source.name}-clone-${Date.now()}`.slice(0, 100),
-    provider,
+    provider: source.provider,
     version: source.version,
     connector_type: source.connector_type as CreatePosTemplateInput["connector_type"],
     description: source.description ?? undefined,
     is_system: false,
     is_active: true,
-    config: (source.config as Record<string, unknown>) ?? defaultPosTemplateConfig(provider),
+    config:
+      (source.config as Record<string, unknown> | undefined) ??
+      defaultPosTemplateConfig(
+        isPosProvider(source.provider) ? source.provider : "generic",
+      ),
   });
 }
 
@@ -1742,32 +1756,39 @@ export async function mockAttachShopLink(
     });
   }
 
-  const provider = isPosProvider(input.provider) ? input.provider : "generic";
+  const rawProvider = String(input.provider ?? "").trim().toLowerCase();
+  const pull = isPullPosProfile(rawProvider, String(input.connector_type ?? ""));
+  const provider = isPosProvider(rawProvider)
+    ? rawProvider
+    : pull
+      ? rawProvider
+      : "generic";
+  const knownProvider: PosProvider = isPosProvider(provider)
+    ? provider
+    : "saleculator";
   const extras = mockShopExtras[shopId];
   const integrationEnabled = Boolean(
     extras?.features?.integration_enabled ?? false,
   );
 
-  if (provider === "saleculator" && !integrationEnabled) {
-    throw Object.assign(
-      new Error(
-        "integration_enabled must be true on the shop before attaching Saleculator lane",
-      ),
-      {
-        status: 400,
-        body: {
-          code: "integration_disabled",
-          message:
-            "integration_enabled must be true on the shop before attaching Saleculator lane",
-        },
+  if ((provider === "saleculator" || pull) && !integrationEnabled) {
+    const message =
+      provider === "saleculator"
+        ? "integration_enabled must be true on the shop before attaching Saleculator lane"
+        : `integration_enabled must be true before attaching ${provider}. Enable Integration on Features, rotate the token (that plaintext is the link_token), then attach that provider's pull profile.`;
+    throw Object.assign(new Error(message), {
+      status: 400,
+      body: {
+        code: "integration_disabled",
+        message,
       },
-    );
+    });
   }
 
   let catalog_sync_enabled = Boolean(input.catalog_sync_enabled);
   let order_push_enabled = Boolean(input.order_push_enabled);
   let order_pull_enabled = Boolean(input.order_pull_enabled);
-  if (provider === "saleculator") {
+  if (provider === "saleculator" || pull) {
     catalog_sync_enabled = false;
     order_push_enabled = false;
     order_pull_enabled = true;
@@ -1809,7 +1830,7 @@ export async function mockAttachShopLink(
     mapping_profile_name: profile.name,
     provider: input.provider,
     connector_type: input.connector_type,
-    lane: laneForProvider(provider),
+    lane: laneForProfile(provider, String(input.connector_type ?? "")),
     is_active: input.is_active !== false,
     config_overrides: overrides,
     config_version: (existing?.config_version ?? 0) + 1,
@@ -1818,7 +1839,7 @@ export async function mockAttachShopLink(
     integration_token_present: Boolean(extras?.has_integration_token),
     integration_enabled: integrationEnabled,
     capabilities: input.capabilities ?? {},
-    events: profile.events ?? POS_DEFAULT_EVENTS[provider],
+    events: profile.events ?? POS_DEFAULT_EVENTS[knownProvider],
     status_maps: profile.status_maps ?? { outbound: {}, inbound: {} },
     catalog_sync_enabled,
     order_push_enabled,

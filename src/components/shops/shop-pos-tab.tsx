@@ -16,9 +16,12 @@ import {
   attachPresetForProvider,
   attachShopLink,
   defaultConnectorForProvider,
+  displayPosProviderName,
   isPosProvider,
+  isPullPosProfile,
   patchLinkFeatures,
   POS_PROVIDER_LABELS,
+  PULL_POS_ATTACH_PRESET,
 } from "@/lib/api/pos";
 import { parseApiFormError } from "@/lib/api-form-error";
 import { appToast } from "@/lib/app-toast";
@@ -26,6 +29,7 @@ import {
   POS_SHOP_FALLBACK_PLAYBOOK,
   POS_SHOP_OPERATE_PLAYBOOK,
   POS_SHOP_PLAYBOOK,
+  pullShopPlaybook,
 } from "@/lib/pos/playbook-copy";
 import { cn } from "@/lib/utils";
 import {
@@ -149,12 +153,19 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
 
+  const pullPartner = isPullPosProfile(form.provider, form.connector_type);
   const selectedProvider = isPosProvider(form.provider)
     ? form.provider
     : null;
-  const preset = selectedProvider
-    ? attachPresetForProvider(selectedProvider)
-    : null;
+  const preset = pullPartner
+    ? PULL_POS_ATTACH_PRESET
+    : selectedProvider
+      ? attachPresetForProvider(selectedProvider)
+      : null;
+  const pullName = displayPosProviderName(form.provider);
+  const selectedTemplateName =
+    templates.find((t) => String(t.id) === form.mapping_profile_id)?.name ??
+    "the template";
 
   useEffect(() => {
     const existing = linkQuery.data as PosShopLink | undefined;
@@ -210,16 +221,28 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
       setForm((prev) => ({ ...prev, mapping_profile_id: templateId }));
       return;
     }
-    const provider = isPosProvider(template.provider)
-      ? template.provider
-      : "generic";
-    const lanePreset = attachPresetForProvider(provider);
+    const rawProvider = String(template.provider ?? "").trim().toLowerCase();
+    const rawConnector = String(template.connector_type ?? "")
+      .trim()
+      .toLowerCase();
+    const pull = isPullPosProfile(rawProvider, rawConnector);
+    const provider = isPosProvider(rawProvider)
+      ? rawProvider
+      : pull
+        ? rawProvider
+        : "generic";
+    const lanePreset = pull
+      ? PULL_POS_ATTACH_PRESET
+      : attachPresetForProvider(isPosProvider(provider) ? provider : "generic");
     setForm((prev) => ({
       ...prev,
       mapping_profile_id: templateId,
       provider,
       connector_type:
-        template.connector_type || defaultConnectorForProvider(provider),
+        rawConnector ||
+        (isPosProvider(provider)
+          ? defaultConnectorForProvider(provider)
+          : rawConnector),
       catalog_sync_enabled: lanePreset.catalog_sync_enabled,
       order_push_enabled: lanePreset.order_push_enabled,
       order_pull_enabled: lanePreset.order_pull_enabled,
@@ -261,7 +284,7 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
     e.preventDefault();
     setError(null);
 
-    if (!selectedProvider || !preset) {
+    if (!preset || (!selectedProvider && !pullPartner)) {
       const msg = "Select a valid POS provider template.";
       setError(msg);
       appToast.error(msg);
@@ -270,7 +293,9 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
 
     if (preset.requiresIntegration && !integrationEnabled) {
       const msg =
-        "Enable Integration on the Features tab before attaching Saleculator.";
+        selectedProvider === "saleculator"
+          ? "Enable Integration on the Features tab before attaching Saleculator."
+          : `Enable Integration on the Features tab before attaching ${pullName}.`;
       setError(msg);
       appToast.error(msg);
       return;
@@ -399,9 +424,10 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
 
   const flagDisabled = Boolean(preset?.flagsLocked);
   const templateOptions = useMemo(() => templates, [templates]);
-  const attachPlaybook =
-    (selectedProvider && POS_SHOP_PLAYBOOK[selectedProvider]) ||
-    POS_SHOP_FALLBACK_PLAYBOOK;
+  const attachPlaybook = pullPartner
+    ? pullShopPlaybook(pullName)
+    : (selectedProvider && POS_SHOP_PLAYBOOK[selectedProvider]) ||
+      POS_SHOP_FALLBACK_PLAYBOOK;
 
   return (
     <div className="space-y-12">
@@ -451,6 +477,48 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
             </ol>
           </div>
         ) : null}
+
+        {pullPartner && !integrationEnabled ? (
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+            {pullName} requires{" "}
+            <span className="font-medium">Integration enabled</span>. Turn it on
+            in the{" "}
+            <Link
+              href={`/shops/${shopId}?tab=features`}
+              className="font-medium underline underline-offset-2"
+            >
+              Features
+            </Link>{" "}
+            tab, rotate/create the token (that plaintext is the{" "}
+            <span className="font-medium">link_token</span>), then attach{" "}
+            <span className="font-medium">{selectedTemplateName}</span>.
+          </div>
+        ) : null}
+
+        {pullPartner && integrationEnabled ? (
+          <div className="mb-4 rounded-xl border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm">
+            <p className="font-medium">{pullName} device link</p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
+              <li>
+                Features token plaintext = device{" "}
+                <code className="text-xs">link_token</code>
+              </li>
+              <li>
+                Attach template{" "}
+                <code className="text-xs">{selectedTemplateName}</code>
+              </li>
+              <li>
+                Point {pullName} at DMS{" "}
+                <code className="text-xs">/api/v1/pos</code>
+              </li>
+              <li>
+                Till calls{" "}
+                <code className="text-xs">POST /api/v1/pos/links</code> then
+                polls with Bearer JWT
+              </li>
+            </ol>
+          </div>
+        ) : null}
         <form onSubmit={onAttach} className="max-w-xl space-y-4">
           <Field label="Template">
             <select
@@ -475,7 +543,9 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
                 value={
                   selectedProvider
                     ? POS_PROVIDER_LABELS[selectedProvider]
-                    : form.provider
+                    : pullPartner
+                      ? pullName
+                      : form.provider
                 }
                 readOnly
               />

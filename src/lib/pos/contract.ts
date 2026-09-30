@@ -1,6 +1,7 @@
 /**
- * Hard-locked POS admin-api contract.
- * Do not widen providers/connectors/capabilities without an API change.
+ * Known POS providers (Cratis, Saleculator, Generic, Gravity, Topas).
+ * A later pull POS is a template whose provider is a new slug and whose
+ * connector is saleculator_pull. Do not add that name to POS_PROVIDERS.
  */
 
 export const POS_PROVIDERS = [
@@ -414,6 +415,51 @@ export function attachPresetForProvider(provider: PosProvider) {
   return POS_LANE_ATTACH_PRESETS[provider];
 }
 
+/** Same attach flags as Saleculator. Used for Dart and any later pull POS. */
+export const PULL_POS_ATTACH_PRESET = POS_LANE_ATTACH_PRESETS.saleculator;
+
+const PULL_PROVIDER_SLUG = /^[a-z][a-z0-9_-]{0,31}$/;
+
+const PULL_CONNECTOR_RESERVED = new Set<string>([
+  "saleculator",
+  "cratis",
+  "generic",
+  "gravity",
+  "topas",
+]);
+
+/**
+ * True when the profile is a pull till that is not Saleculator.
+ * Gravity, Cratis, Generic, and Topas cannot use this connector.
+ */
+export function isPullPosProfile(provider: string, connector: string): boolean {
+  const providerKey = provider.trim().toLowerCase();
+  const connectorKey = connector.trim().toLowerCase();
+  if (connectorKey !== "saleculator_pull") return false;
+  if (PULL_CONNECTOR_RESERVED.has(providerKey)) return false;
+  return PULL_PROVIDER_SLUG.test(providerKey);
+}
+
+export function displayPosProviderName(provider: string): string {
+  const key = provider.trim().toLowerCase();
+  if (isPosProvider(key)) return POS_PROVIDER_LABELS[key];
+  if (!key) return "POS";
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+/** Short name for the device link_token copy. Saleculator stays "Saleculator". */
+export function deviceLinkLabel(provider: string): string {
+  const key = provider.trim().toLowerCase();
+  if (!key || key === "saleculator") return "Saleculator";
+  return displayPosProviderName(key);
+}
+
+export function laneForProfile(provider: string, connector: string): PosLane {
+  if (isPosProvider(provider)) return laneForProvider(provider);
+  if (isPullPosProfile(provider, connector)) return "saleculator";
+  return "generic";
+}
+
 /** Starter config matching admin-api create schema. */
 export function defaultPosTemplateConfig(
   provider: PosProvider = "cratis",
@@ -454,6 +500,18 @@ export function defaultPosTemplateConfig(
           : {
               bill_no: { paths: ["id", "bill_no", "vno"] },
             },
+    },
+  };
+}
+
+/** Starter config for a new pull POS. Saleculator templates do not use this. */
+export function defaultPullPosTemplateConfig(): Record<string, unknown> {
+  return {
+    ...defaultPosTemplateConfig("saleculator"),
+    pull: {
+      inbound_delivery_only: true,
+      rider_match: "id_or_code_or_unique_name",
+      catalog_fields: {},
     },
   };
 }

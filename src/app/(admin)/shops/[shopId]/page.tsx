@@ -97,6 +97,7 @@ import {
   shopSubscriptionQuery,
   shopVenuePickersQuery,
 } from "@/lib/queries/shops";
+import { deviceLinkLabel } from "@/lib/pos/contract";
 import { digitsOnly, isValidPhone } from "@/lib/shop-create-validation";
 import { validateShopDeliverySettings } from "@/lib/delivery-settings";
 import { toE164Phone } from "@yaadro/phone-kit";
@@ -1336,9 +1337,13 @@ function FeaturesTab({
     useState<ShopConfirmPhase>("confirm");
   const [rotateError, setRotateError] = useState<string | null>(null);
   const posLinkQuery = useQuery(shopPosLinkQuery(shop.shop_id));
-  const isSaleculatorPos =
-    posLinkQuery.data?.provider === "saleculator" ||
-    posLinkQuery.data?.connector_type === "saleculator_pull";
+  const posProvider = String(posLinkQuery.data?.provider ?? "")
+    .trim()
+    .toLowerCase();
+  const usesDeviceLink =
+    String(posLinkQuery.data?.connector_type ?? "").trim().toLowerCase() ===
+    "saleculator_pull";
+  const deviceLinkName = deviceLinkLabel(posProvider);
 
   useEffect(() => {
     setForm(readShopFeatures(shop));
@@ -1727,8 +1732,10 @@ function FeaturesTab({
             id="feat_integration_enabled"
             label="Integration enabled"
             description={
-              isSaleculatorPos
-                ? "Required for Saleculator. The integration token plaintext is the device link_token (POST /api/v1/pos/links)."
+              usesDeviceLink
+                ? posProvider === "saleculator"
+                  ? "Required for Saleculator. The integration token plaintext is the device link_token (POST /api/v1/pos/links)."
+                  : `Required for ${deviceLinkName}. The integration token plaintext is the device link_token (POST /api/v1/pos/links).`
                 : "Allow third-party / POS API integration for this shop."
             }
             checked={form.integration_enabled}
@@ -1799,8 +1806,10 @@ function FeaturesTab({
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Rotate integration token</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {isSaleculatorPos
-                      ? "Issues a new link_token for Saleculator and invalidates the previous one. The till must re-link after rotate. Shown only once."
+                    {usesDeviceLink
+                      ? posProvider === "saleculator"
+                        ? "Issues a new link_token for Saleculator and invalidates the previous one. The till must re-link after rotate. Shown only once."
+                        : `Issues a new link_token for ${deviceLinkName} and invalidates the previous one. The till must re-link after rotate. Shown only once.`
                       : "Issues a new secret and invalidates the previous token. The new token is shown only once."}
                   </p>
                 </div>
@@ -1840,7 +1849,8 @@ function FeaturesTab({
       shopName={shopDisplayName}
       token={integrationToken ?? ""}
       mode={tokenDialogMode}
-      saleculatorLinkToken={isSaleculatorPos}
+      saleculatorLinkToken={usesDeviceLink}
+      deviceLinkName={usesDeviceLink ? deviceLinkName : undefined}
       onOpenChange={(open) => {
         if (!open) setIntegrationToken(null);
       }}
@@ -1851,8 +1861,10 @@ function FeaturesTab({
       phase={rotatePhase}
       title="Rotate integration token?"
       description={
-        isSaleculatorPos
-          ? "This creates a new Saleculator link_token and immediately invalidates the previous one. The till must re-link with POST /api/v1/pos/links using the new token."
+        usesDeviceLink
+          ? posProvider === "saleculator"
+            ? "This creates a new Saleculator link_token and immediately invalidates the previous one. The till must re-link with POST /api/v1/pos/links using the new token."
+            : `This creates a new ${deviceLinkName} link_token and immediately invalidates the previous one. The till must re-link with POST /api/v1/pos/links using the new token.`
           : "This creates a new integration token and immediately invalidates the previous one. Any POS or third-party clients using the old token will stop working until you update them."
       }
       confirmLabel="Rotate token"

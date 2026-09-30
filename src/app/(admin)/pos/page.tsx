@@ -41,6 +41,8 @@ import {
   createPosTemplate,
   defaultConnectorForProvider,
   defaultPosTemplateConfig,
+  defaultPullPosTemplateConfig,
+  isPullPosProfile,
   POS_PROVIDER_LABELS,
   POS_PROVIDERS,
   POS_TEMPLATE_NAME_PATTERN,
@@ -52,6 +54,8 @@ import { posShopLinksQuery, posTemplatesQuery } from "@/lib/queries/pos";
 import type { PosShopLink, PosTemplateSummary } from "@/types/api";
 
 type PosView = "templates" | "links";
+
+const NEW_PULL_PROVIDER = "__new_pull__";
 
 const templateColumns: ColumnDef<PosTemplateSummary>[] = [
   {
@@ -204,7 +208,8 @@ export default function PosPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
-    provider: "cratis" as PosProvider,
+    provider: "cratis" as PosProvider | typeof NEW_PULL_PROVIDER,
+    pull_provider: "",
     version: "1",
     connector_type: "cratis" as PosConnectorType,
     description: "",
@@ -217,10 +222,13 @@ export default function PosPage() {
   const loading =
     view === "templates" ? templatesQuery.isPending : linksQuery.isPending;
 
-  const connectorOptions = useMemo(
-    () => connectorsForProvider(form.provider),
-    [form.provider],
-  );
+  const isNewPull = form.provider === NEW_PULL_PROVIDER;
+  const connectorOptions = useMemo(() => {
+    if (form.provider === NEW_PULL_PROVIDER) {
+      return ["saleculator_pull"] as const;
+    }
+    return connectorsForProvider(form.provider);
+  }, [form.provider]);
 
   const createMutation = useMutation({
     mutationFn: () => {
@@ -231,15 +239,26 @@ export default function PosPage() {
           "Name must start with a letter/number and only use letters, numbers, - or _",
         );
       }
+      const provider = isNewPull
+        ? form.pull_provider.trim().toLowerCase()
+        : form.provider;
+      if (isNewPull && !isPullPosProfile(provider, "saleculator_pull")) {
+        throw new ApiError(
+          400,
+          "Use a new provider name (letters, numbers, - or _). Cratis, Saleculator, Generic, Gravity, and Topas stay on their own connectors.",
+        );
+      }
       return createPosTemplate({
         name,
-        provider: form.provider,
+        provider,
         version: form.version.trim(),
-        connector_type: form.connector_type,
+        connector_type: isNewPull ? "saleculator_pull" : form.connector_type,
         description: form.description.trim() || undefined,
         is_system: false,
         is_active: true,
-        config: defaultPosTemplateConfig(form.provider),
+        config: isNewPull
+          ? defaultPullPosTemplateConfig()
+          : defaultPosTemplateConfig(form.provider as PosProvider),
       });
     },
     onSuccess: (created) => {
@@ -248,6 +267,7 @@ export default function PosPage() {
       setForm({
         name: "",
         provider: "cratis",
+        pull_provider: "",
         version: "1",
         connector_type: "cratis",
         description: "",
@@ -418,6 +438,14 @@ export default function PosPage() {
                       value={form.provider}
                       onValueChange={(value) => {
                         if (!value) return;
+                        if (value === NEW_PULL_PROVIDER) {
+                          setForm({
+                            ...form,
+                            provider: NEW_PULL_PROVIDER,
+                            connector_type: "saleculator_pull",
+                          });
+                          return;
+                        }
                         const provider = value as PosProvider;
                         setForm({
                           ...form,
@@ -435,6 +463,9 @@ export default function PosPage() {
                             {POS_PROVIDER_LABELS[value]}
                           </SelectItem>
                         ))}
+                        <SelectItem value={NEW_PULL_PROVIDER}>
+                          New pull POS (same APIs)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -442,8 +473,9 @@ export default function PosPage() {
                     <Label>Connector type</Label>
                     <Select
                       value={form.connector_type}
+                      disabled={isNewPull}
                       onValueChange={(value) => {
-                        if (!value) return;
+                        if (!value || isNewPull) return;
                         setForm({
                           ...form,
                           connector_type: value as PosConnectorType,
@@ -463,6 +495,28 @@ export default function PosPage() {
                     </Select>
                   </div>
                 </div>
+                {isNewPull ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="pos-pull-provider">Provider name</Label>
+                    <Input
+                      id="pos-pull-provider"
+                      required
+                      pattern="[A-Za-z][A-Za-z0-9_-]*"
+                      title="Start with a letter. Letters, numbers, hyphen or underscore."
+                      placeholder="acme"
+                      value={form.pull_provider}
+                      onChange={(e) =>
+                        setForm({ ...form, pull_provider: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This name is stored on the shop. Connector stays
+                      saleculator_pull. Fill catalog field names on the template
+                      after create. Saleculator, Cratis, Gravity, and Topas are
+                      unchanged.
+                    </p>
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="pos-version">Version</Label>
                   <Input
