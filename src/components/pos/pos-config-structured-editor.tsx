@@ -25,7 +25,6 @@ import {
 } from "@/lib/pos/config-model";
 import {
   POS_STATUS_UPDATE_MODES,
-  type PosProvider,
   type PosStatusUpdateMode,
 } from "@/lib/pos/contract";
 
@@ -132,7 +131,7 @@ export function PosConfigStructuredEditor({
   onTestMap,
   testMapBusy,
 }: {
-  provider: PosProvider;
+  provider: string;
   config: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
   onTestMap: (input: {

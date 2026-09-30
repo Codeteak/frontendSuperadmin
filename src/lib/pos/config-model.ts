@@ -4,7 +4,6 @@ import {
   type PosCapabilities,
   type PosEndpointKey,
   type PosEvents,
-  type PosProvider,
   type PosStatusUpdateMode,
   POS_ENDPOINT_KEYS,
 } from "@/lib/pos/contract";
@@ -93,7 +92,7 @@ function parseEndpoints(raw: unknown): Partial<Record<PosEndpointKey, PosEndpoin
   return out;
 }
 
-function parseCapabilities(raw: unknown, provider: PosProvider): PosCapabilities {
+function parseCapabilities(raw: unknown, provider: string): PosCapabilities {
   const defaults = defaultPosTemplateConfig(provider).capabilities as PosCapabilities;
   if (!isRecord(raw)) return defaults;
   return {
@@ -106,7 +105,7 @@ function parseCapabilities(raw: unknown, provider: PosProvider): PosCapabilities
   };
 }
 
-function parseEvents(raw: unknown, provider: PosProvider): PosEvents {
+function parseEvents(raw: unknown, provider: string): PosEvents {
   const defaults = defaultPosTemplateConfig(provider).events as PosEvents;
   if (!isRecord(raw)) return defaults;
   const arr = (v: unknown, fallback: string[]) =>
@@ -119,7 +118,7 @@ function parseEvents(raw: unknown, provider: PosProvider): PosEvents {
 
 export function parseTemplateConfig(
   raw: Record<string, unknown> | null | undefined,
-  provider: PosProvider,
+  provider: string,
 ): PosTemplateConfigModel {
   const defaults = defaultPosTemplateConfig(provider);
   const apiRaw = isRecord(raw?.api) ? raw.api : {};

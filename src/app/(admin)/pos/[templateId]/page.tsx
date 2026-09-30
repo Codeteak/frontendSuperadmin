@@ -48,7 +48,6 @@ import {
   testConnectionPosTemplate,
   testMapPosTemplate,
   type PosEndpointKey,
-  type PosProvider,
 } from "@/lib/api/pos";
 import { posKeys, posTemplateQuery } from "@/lib/queries/pos";
 
@@ -425,7 +424,7 @@ export default function PosTemplateDetailPage() {
           description="Use the section tabs below — no need to edit raw JSON unless you open Advanced."
         >
           <PosConfigStructuredEditor
-            provider={(template.provider ?? "generic") as PosProvider}
+            provider={template.provider ?? "generic"}
             config={config}
             onChange={setConfig}
             onTestMap={onTestMap}

@@ -460,12 +460,21 @@ export function laneForProfile(provider: string, connector: string): PosLane {
   return "generic";
 }
 
+/** Known providers stay themselves. A pull POS name uses the Saleculator starter. */
+function resolvedTemplateProvider(provider: string): PosProvider {
+  const key = provider.trim().toLowerCase();
+  if (isPosProvider(key)) return key;
+  if (isPullPosProfile(key, "saleculator_pull")) return "saleculator";
+  return "generic";
+}
+
 /** Starter config matching admin-api create schema. */
 export function defaultPosTemplateConfig(
-  provider: PosProvider = "cratis",
+  provider: string = "cratis",
 ): Record<string, unknown> {
-  const capabilities = POS_DEFAULT_CAPABILITIES[provider];
-  const events = POS_DEFAULT_EVENTS[provider];
+  const key = resolvedTemplateProvider(provider);
+  const capabilities = POS_DEFAULT_CAPABILITIES[key];
+  const events = POS_DEFAULT_EVENTS[key];
   const needsBaseUrl =
     capabilities.catalog !== "none" || capabilities.orders_out === "push";
 
@@ -473,8 +482,8 @@ export function defaultPosTemplateConfig(
     api: {
       baseUrl: needsBaseUrl ? "https://pos-vendor.example.com" : undefined,
       auth: {
-        type: provider === "saleculator" ? "integration_token" : "bearer",
-        ...(provider === "saleculator"
+        type: key === "saleculator" ? "integration_token" : "bearer",
+        ...(key === "saleculator"
           ? {}
           : { headerName: "Authorization" }),
       },
@@ -495,7 +504,7 @@ export function defaultPosTemplateConfig(
     status_update: { mode: "api" as PosStatusUpdateMode },
     mappings: {
       order_inbound:
-        provider === "generic" || provider === "gravity" || provider === "topas"
+        key === "generic" || key === "gravity" || key === "topas"
           ? { ...POS_STARTER_ORDER_INBOUND_MAPPING }
           : {
               bill_no: { paths: ["id", "bill_no", "vno"] },
