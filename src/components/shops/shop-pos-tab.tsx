@@ -342,6 +342,16 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
       appToast.error(msg);
       return;
     }
+    if (
+      selectedProvider === "cratis" &&
+      (!form.account.trim() || !form.location.trim())
+    ) {
+      const msg =
+        "Enter the Cratis account and location. Use the codes Cratis gave for this shop.";
+      setError(msg);
+      appToast.error(msg);
+      return;
+    }
 
     const account = form.account.trim();
     const location = form.location.trim();
@@ -371,7 +381,12 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
               ...(menuPath ? { menuPath } : {}),
               ...(ordersPath ? { ordersPath } : {}),
               ...(selectedProvider === "cratis"
-                ? {}
+                ? {
+                    account,
+                    location,
+                    menuTenant: { account, location },
+                    orderTenant: { account, location },
+                  }
                 : {
                     ...(account ? { account } : {}),
                     ...(location ? { location } : {}),
@@ -619,7 +634,7 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
               <div>
                 <p className="text-sm font-medium">Cratis shop connection</p>
                 <p className="text-xs text-muted-foreground">
-                  Account and location come from the shop group and shop name. The provider slug sets the URL and the order by field.
+                  Account and location are the codes Cratis gave for this shop. The provider slug sets the URL and the order by field.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -657,16 +672,30 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
                   />
                 </Field>
                 <Field
-                  label="Account"
-                  hint="Sent as the shop group name, or individual when the shop has no group."
+                  label="Cratis account"
+                  hint="The account code from Cratis. This is not the Yaadro group name."
                 >
                   <Input
-                    value={shop?.group_id ? "Shop group name" : "individual"}
-                    readOnly
+                    value={form.account}
+                    onChange={(e) =>
+                      setForm({ ...form, account: e.target.value })
+                    }
+                    placeholder="account from Cratis"
+                    required
                   />
                 </Field>
-                <Field label="Location" hint="Sent as this shop's name.">
-                  <Input value={shop?.shop_name ?? ""} readOnly />
+                <Field
+                  label="Cratis location"
+                  hint="The location code from Cratis. This is not the Yaadro shop name."
+                >
+                  <Input
+                    value={form.location}
+                    onChange={(e) =>
+                      setForm({ ...form, location: e.target.value })
+                    }
+                    placeholder="location from Cratis"
+                    required
+                  />
                 </Field>
                 <Field label="Brand ID" hint="Restaurant brand shown to Cratis.">
                   <Input
