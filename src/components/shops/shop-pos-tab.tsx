@@ -104,6 +104,10 @@ function formatTs(value: unknown) {
   }
 }
 
+function slugFromOrdersPath(path: string) {
+  return path.split("/").filter(Boolean)[0] ?? "";
+}
+
 function yesNo(value: boolean | null | undefined) {
   if (value == null) return "—";
   return value ? "Yes" : "No";
@@ -142,6 +146,7 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
     auth_type: "bearer",
     menu_path: "",
     orders_path: "",
+    provider_slug: "",
     account: "",
     location: "",
     brand_id: "",
@@ -190,6 +195,12 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
       auth_type: typeof auth.type === "string" ? auth.type : "bearer",
       menu_path: typeof api.menuPath === "string" ? api.menuPath : "",
       orders_path: typeof api.ordersPath === "string" ? api.ordersPath : "",
+      provider_slug:
+        typeof api.providerSlug === "string" && api.providerSlug.trim()
+          ? api.providerSlug
+          : slugFromOrdersPath(
+              typeof api.ordersPath === "string" ? api.ordersPath : "",
+            ),
       account:
         typeof menuTenant.account === "string"
           ? menuTenant.account
@@ -249,11 +260,12 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
       ...(provider === "cratis"
         ? {
             base_url: "https://online.cratis.live",
-            auth_type: "none",
-            menu_path: "/pos/",
-            orders_path: "/pos/orders/",
+            auth_type: "bearer",
+            provider_slug: "cratis_test",
+            menu_path: "/cratis_test/pos/",
+            orders_path: "/cratis_test/orders/",
             timezone: "Asia/Dubai",
-            channel: "Yaadro",
+            channel: "1",
           }
         : {}),
     }));
@@ -312,15 +324,20 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
       return;
     }
 
+    const providerSlug = form.provider_slug.trim().toLowerCase();
+    if (selectedProvider === "cratis" && !/^[a-z0-9][a-z0-9_-]*$/.test(providerSlug)) {
+      const msg =
+        "Cratis provider slug is required (letters, numbers, _ or -). Use cratis_test now and yaadro in production.";
+      setError(msg);
+      appToast.error(msg);
+      return;
+    }
     if (
       selectedProvider === "cratis" &&
-      (!form.menu_path.trim() ||
-        !form.orders_path.trim() ||
-        !form.account.trim() ||
-        !form.location.trim())
+      !form.credentials_plaintext.trim() &&
+      !link?.has_credentials
     ) {
-      const msg =
-        "Cratis requires menu path, orders path, account, and location.";
+      const msg = "Paste the Cratis bearer token. Save the token only, not the word Bearer.";
       setError(msg);
       appToast.error(msg);
       return;
@@ -328,8 +345,12 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
 
     const account = form.account.trim();
     const location = form.location.trim();
-    const menuPath = form.menu_path.trim();
-    const ordersPath = form.orders_path.trim();
+    const menuPath =
+      selectedProvider === "cratis" ? `/${providerSlug}/pos/` : form.menu_path.trim();
+    const ordersPath =
+      selectedProvider === "cratis"
+        ? `/${providerSlug}/orders/`
+        : form.orders_path.trim();
     const config_overrides =
       form.base_url.trim() ||
       form.auth_type ||
@@ -342,17 +363,25 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
               ...(form.base_url.trim()
                 ? { baseUrl: form.base_url.trim() }
                 : {}),
-              auth: { type: form.auth_type },
+              auth:
+                selectedProvider === "cratis"
+                  ? { type: "bearer", headerName: "Authorization" }
+                  : { type: form.auth_type },
+              ...(selectedProvider === "cratis" ? { providerSlug } : {}),
               ...(menuPath ? { menuPath } : {}),
               ...(ordersPath ? { ordersPath } : {}),
-              ...(account ? { account } : {}),
-              ...(location ? { location } : {}),
-              ...(account || location
-                ? {
-                    menuTenant: { account, location },
-                    orderTenant: { account, location },
-                  }
-                : {}),
+              ...(selectedProvider === "cratis"
+                ? {}
+                : {
+                    ...(account ? { account } : {}),
+                    ...(location ? { location } : {}),
+                    ...(account || location
+                      ? {
+                          menuTenant: { account, location },
+                          orderTenant: { account, location },
+                        }
+                      : {}),
+                  }),
               ...(form.brand_id.trim()
                 ? { brandId: form.brand_id.trim() }
                 : {}),
@@ -590,52 +619,54 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
               <div>
                 <p className="text-sm font-medium">Cratis shop connection</p>
                 <p className="text-xs text-muted-foreground">
-                  Enter the tenant values supplied by Cratis for this branch.
+                  Account and location come from the shop group and shop name. The provider slug sets the URL and the order by field.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field
-                  label="Menu path"
-                  hint="Branch-prefixed when supplied by Cratis."
+                  label="Provider slug"
+                  hint="Used in the URL and the order by field. cratis_test now, yaadro in production."
                 >
                   <Input
-                    value={form.menu_path}
+                    value={form.provider_slug}
                     onChange={(e) =>
-                      setForm({ ...form, menu_path: e.target.value })
+                      setForm({ ...form, provider_slug: e.target.value })
                     }
-                    placeholder="/hnc_test/pos/"
+                    placeholder="cratis_test"
                     required
                   />
                 </Field>
-                <Field label="Orders path">
+                <Field label="Orders URL">
                   <Input
-                    value={form.orders_path}
-                    onChange={(e) =>
-                      setForm({ ...form, orders_path: e.target.value })
+                    value={
+                      form.provider_slug.trim()
+                        ? `/${form.provider_slug.trim().toLowerCase()}/orders/`
+                        : ""
                     }
-                    placeholder="/pos/orders/"
-                    required
+                    readOnly
                   />
                 </Field>
-                <Field label="Account">
+                <Field label="Menu URL">
                   <Input
-                    value={form.account}
-                    onChange={(e) =>
-                      setForm({ ...form, account: e.target.value })
+                    value={
+                      form.provider_slug.trim()
+                        ? `/${form.provider_slug.trim().toLowerCase()}/pos/`
+                        : ""
                     }
-                    placeholder="hnc"
-                    required
+                    readOnly
                   />
                 </Field>
-                <Field label="Location">
+                <Field
+                  label="Account"
+                  hint="Sent as the shop group name, or individual when the shop has no group."
+                >
                   <Input
-                    value={form.location}
-                    onChange={(e) =>
-                      setForm({ ...form, location: e.target.value })
-                    }
-                    placeholder="HNC002"
-                    required
+                    value={shop?.group_id ? "Shop group name" : "individual"}
+                    readOnly
                   />
+                </Field>
+                <Field label="Location" hint="Sent as this shop's name.">
+                  <Input value={shop?.shop_name ?? ""} readOnly />
                 </Field>
                 <Field label="Brand ID" hint="Restaurant brand shown to Cratis.">
                   <Input
@@ -655,14 +686,8 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
                     placeholder="Asia/Dubai"
                   />
                 </Field>
-                <Field label="Channel">
-                  <Input
-                    value={form.channel}
-                    onChange={(e) =>
-                      setForm({ ...form, channel: e.target.value })
-                    }
-                    placeholder="Yaadro"
-                  />
+                <Field label="Channel" hint="Cratis always receives channel 1.">
+                  <Input value="1" readOnly />
                 </Field>
               </div>
             </div>
@@ -670,8 +695,18 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
 
           {selectedProvider && selectedProvider !== "saleculator" ? (
             <Field
-              label="Credentials (plaintext)"
-              hint="Optional. Encrypted at rest. Leave blank to keep existing."
+              label={
+                selectedProvider === "cratis"
+                  ? "Cratis bearer token"
+                  : "Credentials (plaintext)"
+              }
+              hint={
+                selectedProvider === "cratis"
+                  ? link?.has_credentials
+                    ? "Token is saved and sealed. Paste a new token to replace it, or leave blank to keep the current one."
+                    : "Required. Paste the token only. Do not include the word Bearer."
+                  : "Optional. Encrypted at rest. Leave blank to keep existing."
+              }
             >
               <Textarea
                 value={form.credentials_plaintext}
@@ -679,7 +714,12 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
                   setForm({ ...form, credentials_plaintext: e.target.value })
                 }
                 rows={2}
-                placeholder='{"apiKey":"secret-from-vendor"}'
+                placeholder={
+                  selectedProvider === "cratis"
+                    ? "paste-the-cratis-token"
+                    : '{"apiKey":"secret-from-vendor"}'
+                }
+                required={selectedProvider === "cratis" && !link?.has_credentials}
               />
             </Field>
           ) : null}

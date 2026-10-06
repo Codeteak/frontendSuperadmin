@@ -520,7 +520,14 @@ export function defaultPullPosTemplateConfig(): Record<string, unknown> {
     pull: {
       inbound_delivery_only: true,
       rider_match: "id_or_code_or_unique_name",
-      catalog_fields: {},
+      catalog_fields: {
+        items: "items",
+        name: "name",
+        category: "category",
+        price: "price",
+        code: "code",
+        name_alt: "name_alt",
+      },
     },
   };
 }
