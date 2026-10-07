@@ -144,7 +144,7 @@ export const POS_SHOP_FIELD_GLOSSARY: PosPlaybookField[] = [
   {
     name: "Webhook secret",
     meaning: "Shared password so we trust messages the POS sends to us.",
-    what: "A long string both sides know. When Gravity/Topas/generic POS sends a webhook into Yaadro, we can check this secret.",
+    what: "A long string both sides know. When Gravity/generic POS sends a webhook into Yaadro, we can check this secret.",
     why: "Stops random internet traffic from creating fake orders. Protects inbound Lane C flows.",
     who: "Ops agrees the string with the vendor and configures both sides. Yaadro checks it on inbound webhooks.",
     when: "When enabling inbound webhooks, or when rotating after a leak.",
@@ -521,7 +521,7 @@ const LANE_FIELD_EXTRAS: PosPlaybookField[] = [
     example: "Features token + template saleculator-pull-v1",
   },
   {
-    name: "Lane C — generic / gravity / topas",
+    name: "Lane C — generic / gravity",
     meaning: "Configurable JSON over HTTP with mappings.",
     what: "Plug-and-play lane: you configure paths and field maps in Super Admin.",
     why: "Many POS brands share similar JSON; you onboard without waiting for a new connector — until the scenario table says needs developer.",
@@ -629,7 +629,7 @@ export const POS_LANE_CHOOSER_PLAYBOOK: PosPlaybookDef = {
     "Fresh user path: Overview → Examples (pick your story) → Fields & values (open 5Ws on each field) → Steps. Use simple words: template = recipe, shop = one store’s address and keys. If Scenarios says “Needs developer”, stop.",
   steps: [
     {
-      title: "Name the vendor (Cratis / Saleculator / Gravity / Topas / other)",
+      title: "Name the vendor (Cratis / Saleculator / Gravity / Dart / Topos / other)",
     },
     {
       title: "Open Examples page — copy the value table for that story",
@@ -736,14 +736,12 @@ export const POS_TEMPLATE_LANE_CALLOUTS: Record<string, string> = {
     "Lane C — endpoints + mappings are the main work. Use section tabs 1–7 + Fields → Open 5Ws + Test map.",
   gravity:
     "Lane C — shop overrides URL/tenants; template holds paths/mappings. Use tabs 2–5; read 5Ws before saving.",
-  topas:
-    "Lane C — shop overrides URL/tenants; template holds paths/mappings. Use tabs 2–5; read 5Ws before saving.",
 };
 
 export const POS_SCENARIO_MATRIX: PosScenarioRow[] = [
   {
     scenario:
-      "New shop on existing Cratis / Saleculator / Gravity / Topas / generic template",
+      "New shop on existing Cratis / Saleculator / Gravity / Dart / Topos / generic template",
     configOnly: "Yes — attach + URL / tenants / token (see Examples + field 5Ws)",
     needsCode: "No",
     severity: "config_only",
@@ -884,16 +882,6 @@ export const POS_SHOP_PLAYBOOK: Record<string, PosPlaybookDef> = {
     "Same as Lane C. Open 5Ws for URL and tenants; reuse gravity template mappings.",
     [
       { title: "Select gravity template" },
-      { title: "Set base URL + auth + tenants" },
-      { title: "Save and verify sync / webhook" },
-    ],
-    [LANE_EXAMPLES[2]!, LANE_EXAMPLES[3]!],
-  ),
-  topas: shopPlaybook(
-    "Shop POS — Topas with full 5Ws",
-    "Same as Lane C. Open 5Ws for URL and tenants; reuse topas template mappings.",
-    [
-      { title: "Select topas template" },
       { title: "Set base URL + auth + tenants" },
       { title: "Save and verify sync / webhook" },
     ],

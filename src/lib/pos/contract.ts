@@ -1,7 +1,7 @@
 /**
- * Known POS providers (Cratis, Saleculator, Generic, Gravity, Topas).
- * A later pull POS is a template whose provider is a new slug and whose
- * connector is saleculator_pull. Do not add that name to POS_PROVIDERS.
+ * Known POS providers (Cratis, Saleculator, Generic, Gravity).
+ * Pull POS names (dart, topos, …) are template slugs with connector
+ * saleculator_pull. Do not add those names to POS_PROVIDERS.
  */
 
 export const POS_PROVIDERS = [
@@ -9,7 +9,6 @@ export const POS_PROVIDERS = [
   "saleculator",
   "generic",
   "gravity",
-  "topas",
 ] as const;
 
 export type PosProvider = (typeof POS_PROVIDERS)[number];
@@ -20,7 +19,6 @@ export const POS_CONNECTOR_TYPES = [
   "generic_json",
   "webhook_inbound",
   "gravity",
-  "topas",
 ] as const;
 
 export type PosConnectorType = (typeof POS_CONNECTOR_TYPES)[number];
@@ -31,15 +29,13 @@ export const POS_PROVIDER_CONNECTOR_PAIRS = {
   saleculator: ["saleculator_pull"],
   generic: ["generic_json", "webhook_inbound"],
   gravity: ["gravity", "generic_json", "webhook_inbound"],
-  topas: ["topas", "generic_json", "webhook_inbound"],
 } as const satisfies Record<PosProvider, readonly PosConnectorType[]>;
 
 export type PosLane =
   | "cratis"
   | "saleculator"
   | "generic"
-  | "gravity"
-  | "topas";
+  | "gravity";
 
 /** Derived lane from provider (seeded templates use same name). */
 export const POS_PROVIDER_LANE = {
@@ -47,7 +43,6 @@ export const POS_PROVIDER_LANE = {
   saleculator: "saleculator",
   generic: "generic",
   gravity: "gravity",
-  topas: "topas",
 } as const satisfies Record<PosProvider, PosLane>;
 
 export const POS_CAPABILITY_CATALOG = [
@@ -260,14 +255,6 @@ export const POS_LANE_ATTACH_PRESETS = {
     requiresIntegration: false,
     requiresBaseUrl: true,
   },
-  topas: {
-    catalog_sync_enabled: false,
-    order_push_enabled: true,
-    order_pull_enabled: false,
-    flagsLocked: false,
-    requiresIntegration: false,
-    requiresBaseUrl: true,
-  },
 } as const satisfies Record<
   PosProvider,
   {
@@ -314,14 +301,6 @@ export const POS_DEFAULT_CAPABILITIES: Record<PosProvider, PosCapabilities> = {
     status_in: "webhook",
     riders: "none",
   },
-  topas: {
-    catalog: "none",
-    orders_out: "push",
-    orders_in: "webhook",
-    status_out: "push",
-    status_in: "webhook",
-    riders: "none",
-  },
 };
 
 export const POS_DEFAULT_EVENTS: Record<PosProvider, PosEvents> = {
@@ -354,18 +333,6 @@ export const POS_DEFAULT_EVENTS: Record<PosProvider, PosEvents> = {
     ],
   },
   gravity: {
-    order_create_on: ["blank_created"],
-    status_out_on: [
-      "Accepted",
-      "Assigned",
-      "Picked Up",
-      "Out for Delivery",
-      "Delivered",
-      "cancelled",
-      "Rejected",
-    ],
-  },
-  topas: {
     order_create_on: ["blank_created"],
     status_out_on: [
       "Accepted",
@@ -425,12 +392,12 @@ const PULL_CONNECTOR_RESERVED = new Set<string>([
   "cratis",
   "generic",
   "gravity",
-  "topas",
 ]);
 
 /**
  * True when the profile is a pull till that is not Saleculator.
- * Gravity, Cratis, Generic, and Topas cannot use this connector.
+ * Gravity, Cratis, and Generic cannot use this connector.
+ * Dart and Topos (and later pull slugs) are allowed.
  */
 export function isPullPosProfile(provider: string, connector: string): boolean {
   const providerKey = provider.trim().toLowerCase();
@@ -504,7 +471,7 @@ export function defaultPosTemplateConfig(
     status_update: { mode: "api" as PosStatusUpdateMode },
     mappings: {
       order_inbound:
-        key === "generic" || key === "gravity" || key === "topas"
+        key === "generic" || key === "gravity"
           ? { ...POS_STARTER_ORDER_INBOUND_MAPPING }
           : {
               bill_no: { paths: ["id", "bill_no", "vno"] },
@@ -547,5 +514,4 @@ export const POS_PROVIDER_LABELS: Record<PosProvider, string> = {
   saleculator: "Saleculator (Lane B)",
   generic: "Generic (Lane C)",
   gravity: "Gravity",
-  topas: "Topas",
 };

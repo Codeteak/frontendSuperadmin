@@ -245,7 +245,7 @@ export default function PosPage() {
       if (isNewPull && !isPullPosProfile(provider, "saleculator_pull")) {
         throw new ApiError(
           400,
-          "Use a new provider name (letters, numbers, - or _). Cratis, Saleculator, Generic, Gravity, and Topas stay on their own connectors.",
+          "Use a new provider name (letters, numbers, - or _). Cratis, Saleculator, Generic, and Gravity stay on their own connectors.",
         );
       }
       return createPosTemplate({
@@ -512,7 +512,7 @@ export default function PosPage() {
                     <p className="text-xs text-muted-foreground">
                       This name is stored on the shop. Connector stays
                       saleculator_pull. Fill catalog field names on the template
-                      after create. Saleculator, Cratis, Gravity, and Topas are
+                      after create. Saleculator, Cratis, and Gravity are
                       unchanged.
                     </p>
                   </div>

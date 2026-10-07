@@ -42,6 +42,7 @@ import type {
 import { siteConfig } from "@/config/site";
 import {
   defaultPosTemplateConfig,
+  defaultPullPosTemplateConfig,
   isPosProvider,
   isPullPosProfile,
   laneForProfile,
@@ -345,6 +346,34 @@ function seededPosTemplate(
   };
 }
 
+function seededPullPosTemplate(
+  id: number,
+  name: string,
+  provider: string,
+  description: string,
+): PosTemplate {
+  const config = defaultPullPosTemplateConfig();
+  const capabilities = POS_DEFAULT_CAPABILITIES.saleculator;
+  const events = POS_DEFAULT_EVENTS.saleculator;
+  return {
+    id,
+    name,
+    provider,
+    version: "1",
+    connector_type: "saleculator_pull",
+    lane: laneForProfile(provider, "saleculator_pull"),
+    description,
+    is_system: true,
+    is_active: true,
+    capabilities,
+    events,
+    status_maps: { outbound: {}, inbound: {} },
+    config,
+    created_at: "2026-08-04T09:58:20.142Z",
+    updated_at: "2026-08-04T09:58:20.142Z",
+  };
+}
+
 let mockPosTemplates: PosTemplate[] = [
   seededPosTemplate(
     1,
@@ -374,12 +403,11 @@ let mockPosTemplates: PosTemplate[] = [
     "gravity",
     "Gravity plug-and-play lane",
   ),
-  seededPosTemplate(
+  seededPullPosTemplate(
     5,
-    "topas-v1",
-    "topas",
-    "topas",
-    "Topas plug-and-play lane",
+    "topos-v1",
+    "topos",
+    "Topos pull lane. Uses /api/v1/pos.",
   ),
 ];
 

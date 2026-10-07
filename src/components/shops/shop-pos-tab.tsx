@@ -753,9 +753,7 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
             </Field>
           ) : null}
 
-          {selectedProvider === "generic" ||
-          selectedProvider === "gravity" ||
-          selectedProvider === "topas" ? (
+          {selectedProvider === "generic" || selectedProvider === "gravity" ? (
             <Field
               label="Webhook secret"
               hint="Optional. 8–512 chars when set."
