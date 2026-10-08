@@ -629,7 +629,7 @@ export const POS_LANE_CHOOSER_PLAYBOOK: PosPlaybookDef = {
     "Fresh user path: Overview → Examples (pick your story) → Fields & values (open 5Ws on each field) → Steps. Use simple words: template = recipe, shop = one store’s address and keys. If Scenarios says “Needs developer”, stop.",
   steps: [
     {
-      title: "Name the vendor (Cratis / Saleculator / Gravity / Dart / Topos / other)",
+      title: "Name the vendor (Cratis / Saleculator / Gravity / Dart / Topos / Parallax / other)",
     },
     {
       title: "Open Examples page — copy the value table for that story",
@@ -741,7 +741,7 @@ export const POS_TEMPLATE_LANE_CALLOUTS: Record<string, string> = {
 export const POS_SCENARIO_MATRIX: PosScenarioRow[] = [
   {
     scenario:
-      "New shop on existing Cratis / Saleculator / Gravity / Dart / Topos / generic template",
+      "New shop on existing Cratis / Saleculator / Gravity / Dart / Topos / Parallax / generic template",
     configOnly: "Yes — attach + URL / tenants / token (see Examples + field 5Ws)",
     needsCode: "No",
     severity: "config_only",

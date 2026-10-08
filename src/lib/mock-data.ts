@@ -409,6 +409,18 @@ let mockPosTemplates: PosTemplate[] = [
     "topos",
     "Topos pull lane. Uses /api/v1/pos.",
   ),
+  seededPullPosTemplate(
+    6,
+    "parallax-v1",
+    "parallax",
+    "Parallax pull lane. Uses /api/v1/pos.",
+  ),
+  seededPullPosTemplate(
+    7,
+    "ezee-optimus-v1",
+    "ezee_optimus",
+    "eZee Optimus pull lane. Uses /api/v1/pos.",
+  ),
 ];
 
 let mockShopLinkSeq = 10;

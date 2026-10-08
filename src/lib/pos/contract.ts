@@ -1,7 +1,7 @@
 /**
  * Known POS providers (Cratis, Saleculator, Generic, Gravity).
- * Pull POS names (dart, topos, …) are template slugs with connector
- * saleculator_pull. Do not add those names to POS_PROVIDERS.
+ * Pull POS names (dart, topos, parallax, ezee_optimus, …) are template slugs with
+ * connector saleculator_pull. Do not add those names to POS_PROVIDERS.
  */
 
 export const POS_PROVIDERS = [
@@ -397,7 +397,7 @@ const PULL_CONNECTOR_RESERVED = new Set<string>([
 /**
  * True when the profile is a pull till that is not Saleculator.
  * Gravity, Cratis, and Generic cannot use this connector.
- * Dart and Topos (and later pull slugs) are allowed.
+ * Dart, Topos, Parallax, eZee Optimus (and later pull slugs) are allowed.
  */
 export function isPullPosProfile(provider: string, connector: string): boolean {
   const providerKey = provider.trim().toLowerCase();
@@ -407,11 +407,20 @@ export function isPullPosProfile(provider: string, connector: string): boolean {
   return PULL_PROVIDER_SLUG.test(providerKey);
 }
 
+/** Friendly names for registered pull-lane slugs (not in POS_PROVIDERS). */
+const PULL_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  dart: "Dart",
+  topos: "Topos",
+  parallax: "Parallax",
+  ezee_optimus: "eZee Optimus",
+};
+
 export function displayPosProviderName(provider: string): string {
   const key = provider.trim().toLowerCase();
   if (isPosProvider(key)) return POS_PROVIDER_LABELS[key];
   if (!key) return "POS";
-  return key.charAt(0).toUpperCase() + key.slice(1);
+  if (PULL_PROVIDER_DISPLAY_NAMES[key]) return PULL_PROVIDER_DISPLAY_NAMES[key];
+  return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ");
 }
 
 /** Short name for the device link_token copy. Saleculator stays "Saleculator". */
