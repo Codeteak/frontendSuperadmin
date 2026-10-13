@@ -513,7 +513,7 @@ export type PosShopLink = {
   integration_token_present?: boolean;
   integration_token_fingerprint_present?: boolean;
   integration_enabled?: boolean;
-  /** Saleculator: Features token can be used as Inmenu link_token. */
+  /** Pull lane: POS Integration token can be used as Inmenu link_token. */
   link_token_ready?: boolean;
   setup_guide?: {
     title?: string;
