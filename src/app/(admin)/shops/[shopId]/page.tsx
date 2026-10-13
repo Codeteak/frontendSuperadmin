@@ -68,7 +68,6 @@ import {
   createSubscription,
   resetShopPassword,
   restoreShop,
-  rotateShopIntegrationToken,
   softDeleteShop,
   triggerShopLogoutEvent,
 } from "@/lib/api/shops";
@@ -1332,10 +1331,6 @@ function FeaturesTab({
   const [tokenDialogMode, setTokenDialogMode] = useState<"created" | "rotated">(
     "created",
   );
-  const [rotateOpen, setRotateOpen] = useState(false);
-  const [rotatePhase, setRotatePhase] =
-    useState<ShopConfirmPhase>("confirm");
-  const [rotateError, setRotateError] = useState<string | null>(null);
   const posLinkQuery = useQuery(shopPosLinkQuery(shop.shop_id));
   const posProvider = String(posLinkQuery.data?.provider ?? "")
     .trim()
@@ -1515,46 +1510,12 @@ function FeaturesTab({
     }
   }
 
-  function openRotateConfirm() {
-    setRotateError(null);
-    setRotatePhase("confirm");
-    setRotateOpen(true);
-  }
-
-  function closeRotateConfirm() {
-    if (rotatePhase === "loading") return;
-    setRotateOpen(false);
-    setRotatePhase("confirm");
-    setRotateError(null);
-  }
-
-  async function confirmRotateToken() {
-    setRotatePhase("loading");
-    setRotateError(null);
-    try {
-      const result = await rotateShopIntegrationToken(shop.shop_id);
-      setRotateOpen(false);
-      setRotatePhase("confirm");
-      setTokenDialogMode("rotated");
-      setIntegrationToken(result.integration_token);
-      appToast.success("Integration token rotated. Save the new token now.");
-      await onSaved();
-    } catch (err) {
-      const parsed = parseApiFormError(err, "Failed to rotate integration token");
-      setRotatePhase("error");
-      setRotateError(parsed.message);
-    }
-  }
-
   function isHighlighted(field: string) {
     return highlightFields.includes(field) || Boolean(fieldErrors[field]);
   }
 
   const shopDisplayName =
     shop.shop_name ?? shop.profile?.shop_name ?? shop.shop_id;
-  const canRotateIntegrationToken = Boolean(
-    shop.features?.integration_enabled,
-  );
 
   return (
     <>
@@ -1800,32 +1761,16 @@ function FeaturesTab({
               </p>
             ) : null}
           </Field>
-          {canRotateIntegrationToken ? (
-            <div className="rounded-xl border bg-muted/30 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Rotate integration token</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {usesDeviceLink
-                      ? posProvider === "saleculator"
-                        ? "Issues a new link_token for Saleculator and invalidates the previous one. The till must re-link after rotate. Shown only once."
-                        : `Issues a new link_token for ${deviceLinkName} and invalidates the previous one. The till must re-link after rotate. Shown only once.`
-                      : "Issues a new secret and invalidates the previous token. The new token is shown only once."}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shrink-0"
-                  disabled={saving || rotatePhase === "loading"}
-                  onClick={openRotateConfirm}
-                >
-                  <RefreshCwIcon className="size-4" />
-                  Rotate token
-                </Button>
-              </div>
-            </div>
-          ) : null}
+          <p className="text-xs text-muted-foreground">
+            Rotate the integration token from the{" "}
+            <Link
+              href={`/shops/${shop.shop_id}?tab=pos`}
+              className="font-medium underline underline-offset-2"
+            >
+              POS
+            </Link>{" "}
+            tab.
+          </p>
         </div>
 
         {error ? (
@@ -1854,33 +1799,6 @@ function FeaturesTab({
       onOpenChange={(open) => {
         if (!open) setIntegrationToken(null);
       }}
-    />
-
-    <ShopConfirmDialog
-      open={rotateOpen}
-      phase={rotatePhase}
-      title="Rotate integration token?"
-      description={
-        usesDeviceLink
-          ? posProvider === "saleculator"
-            ? "This creates a new Saleculator link_token and immediately invalidates the previous one. The till must re-link with POST /api/v1/pos/links using the new token."
-            : `This creates a new ${deviceLinkName} link_token and immediately invalidates the previous one. The till must re-link with POST /api/v1/pos/links using the new token.`
-          : "This creates a new integration token and immediately invalidates the previous one. Any POS or third-party clients using the old token will stop working until you update them."
-      }
-      confirmLabel="Rotate token"
-      confirmVariant="destructive"
-      icon={RefreshCwIcon}
-      shopName={shopDisplayName}
-      shopId={shop.shop_id}
-      loadingTitle="Rotating token…"
-      loadingDescription="Issuing a new integration secret."
-      errorTitle="Could not rotate token"
-      errorMessage={rotateError}
-      onOpenChange={(open) => {
-        if (!open) closeRotateConfirm();
-      }}
-      onConfirm={() => void confirmRotateToken()}
-      onRetry={() => void confirmRotateToken()}
     />
     </>
   );

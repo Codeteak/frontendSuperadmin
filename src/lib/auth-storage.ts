@@ -1,3 +1,5 @@
+import { clearPosGateUnlocked } from "@/lib/pos-gate-session";
+
 const ACCESS_KEY = "yaadro_access_token";
 const REFRESH_KEY = "yaadro_refresh_token";
 const EMAIL_KEY = "yaadro_admin_email";
@@ -33,6 +35,7 @@ export function clearSession() {
   localStorage.removeItem(ACCESS_KEY);
   localStorage.removeItem(REFRESH_KEY);
   localStorage.removeItem(EMAIL_KEY);
+  clearPosGateUnlocked();
 }
 
 export function hasSession(): boolean {

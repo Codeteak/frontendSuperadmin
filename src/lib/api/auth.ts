@@ -2,6 +2,8 @@ import { apiFetch } from "@/lib/api";
 import { clearSession, setSession } from "@/lib/auth-storage";
 import type { AuthVerifyResponse } from "@/types/api";
 
+
+
 export function requestLoginCode(email: string) {
   return apiFetch<{ accepted: boolean; expires_in?: number }>(
     "/v2/auth/login/request-code",

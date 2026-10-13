@@ -5,8 +5,14 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCwIcon } from "lucide-react";
 
+import { PosGate } from "@/components/pos/pos-gate";
 import { PosPlaybook } from "@/components/pos/pos-playbook";
 import { DetailList } from "@/components/shared/detail-list";
+import {
+  ShopConfirmDialog,
+  type ShopConfirmPhase,
+} from "@/components/shops/shop-confirm-dialog";
+import { IntegrationTokenDialog } from "@/components/shops/integration-token-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,8 +29,10 @@ import {
   POS_PROVIDER_LABELS,
   PULL_POS_ATTACH_PRESET,
 } from "@/lib/api/pos";
+import { rotateShopIntegrationToken } from "@/lib/api/shops";
 import { parseApiFormError } from "@/lib/api-form-error";
 import { appToast } from "@/lib/app-toast";
+import { deviceLinkLabel } from "@/lib/pos/contract";
 import {
   POS_SHOP_FALLBACK_PLAYBOOK,
   POS_SHOP_OPERATE_PLAYBOOK,
@@ -114,6 +122,14 @@ function yesNo(value: boolean | null | undefined) {
 }
 
 export function ShopPosTab({ shopId }: { shopId: string }) {
+  return (
+    <PosGate>
+      <ShopPosTabContent shopId={shopId} />
+    </PosGate>
+  );
+}
+
+function ShopPosTabContent({ shopId }: { shopId: string }) {
   const shopQuery = useQuery(shopDetailQuery(shopId));
   const templatesQuery = useQuery(
     posTemplatesQuery({ page: 1, limit: 100, is_active: true }),
@@ -133,6 +149,27 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
   const integrationEnabled = Boolean(
     shop?.features?.integration_enabled ?? shop?.integration_enabled,
   );
+  const hasIntegrationToken = Boolean(
+    shop?.features?.has_integration_token,
+  );
+  const posProvider = String(linkQuery.data?.provider ?? "")
+    .trim()
+    .toLowerCase();
+  const usesDeviceLink =
+    String(linkQuery.data?.connector_type ?? "").trim().toLowerCase() ===
+    "saleculator_pull";
+  const deviceLinkName = deviceLinkLabel(posProvider);
+  const shopDisplayName =
+    shop?.shop_name ?? shop?.profile?.shop_name ?? shopId;
+
+  const [integrationToken, setIntegrationToken] = useState<string | null>(null);
+  const [tokenDialogMode, setTokenDialogMode] = useState<"created" | "rotated">(
+    "rotated",
+  );
+  const [rotateOpen, setRotateOpen] = useState(false);
+  const [rotatePhase, setRotatePhase] =
+    useState<ShopConfirmPhase>("confirm");
+  const [rotateError, setRotateError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     mapping_profile_id: "",
@@ -473,13 +510,100 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
     : (selectedProvider && POS_SHOP_PLAYBOOK[selectedProvider]) ||
       POS_SHOP_FALLBACK_PLAYBOOK;
 
+  function openRotateConfirm() {
+    setRotateError(null);
+    setRotatePhase("confirm");
+    setRotateOpen(true);
+  }
+
+  function closeRotateConfirm() {
+    if (rotatePhase === "loading") return;
+    setRotateOpen(false);
+    setRotatePhase("confirm");
+    setRotateError(null);
+  }
+
+  async function confirmRotateToken() {
+    setRotatePhase("loading");
+    setRotateError(null);
+    try {
+      const result = await rotateShopIntegrationToken(shopId);
+      setRotateOpen(false);
+      setRotatePhase("confirm");
+      setTokenDialogMode("rotated");
+      setIntegrationToken(result.integration_token);
+      appToast.success("Integration token rotated. Save the new token now.");
+      await shopQuery.refetch();
+    } catch (err) {
+      const parsed = parseApiFormError(err, "Failed to rotate integration token");
+      setRotatePhase("error");
+      setRotateError(parsed.message);
+    }
+  }
+
   return (
+    <>
     <div className="space-y-12">
       <PosPlaybook playbook={attachPlaybook} />
 
       <ShopSection
+        title="Integration token"
+        description="POS / third-party secret for this shop. Enable Integration on Features first."
+      >
+        <DetailList
+          items={[
+            {
+              label: "Integration enabled",
+              value: integrationEnabled ? "Yes" : "No",
+            },
+            {
+              label: "Has integration token",
+              value: hasIntegrationToken ? "Yes" : "No",
+            },
+          ]}
+        />
+        {!integrationEnabled ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Turn on{" "}
+            <Link
+              href={`/shops/${shopId}?tab=features`}
+              className="font-medium underline underline-offset-2"
+            >
+              Integration enabled
+            </Link>{" "}
+            on the Features tab, then return here to rotate the token.
+          </p>
+        ) : (
+          <div className="mt-4 rounded-xl border bg-muted/30 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Rotate integration token</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {usesDeviceLink
+                    ? posProvider === "saleculator"
+                      ? "Issues a new link_token for Saleculator and invalidates the previous one. The till must re-link after rotate. Shown only once."
+                      : `Issues a new link_token for ${deviceLinkName} and invalidates the previous one. The till must re-link after rotate. Shown only once.`
+                    : "Issues a new secret and invalidates the previous token. The new token is shown only once."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                disabled={rotatePhase === "loading"}
+                onClick={openRotateConfirm}
+              >
+                <RefreshCwIcon className="size-4" />
+                Rotate token
+              </Button>
+            </div>
+          </div>
+        )}
+      </ShopSection>
+
+      <ShopSection
         title="POS link"
-        description="Attach a mapping template. Saleculator requires Integration enabled + link_token (Features token); Cratis/Generic need vendor base URL when push is on."
+        description="Attach a mapping template. Saleculator requires Integration enabled + link_token; Cratis/Generic need vendor base URL when push is on."
       >
         {selectedProvider === "saleculator" && !integrationEnabled ? (
           <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
@@ -492,7 +616,7 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
             >
               Features
             </Link>{" "}
-            tab, rotate/create the token (that plaintext is Saleculator{" "}
+            tab, then rotate/create the token above (that plaintext is Saleculator{" "}
             <span className="font-medium">link_token</span>), then attach{" "}
             <span className="font-medium">saleculator-pull-v1</span>.
           </div>
@@ -503,7 +627,7 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
             <p className="font-medium">Saleculator device link</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
               <li>
-                Features token plaintext = device{" "}
+                Integration token plaintext = device{" "}
                 <code className="text-xs">link_token</code>
               </li>
               <li>
@@ -1072,5 +1196,46 @@ export function ShopPosTab({ shopId }: { shopId: string }) {
         )}
       </ShopSection>
     </div>
+
+    <IntegrationTokenDialog
+      open={Boolean(integrationToken)}
+      shopId={shopId}
+      shopName={shopDisplayName}
+      token={integrationToken ?? ""}
+      mode={tokenDialogMode}
+      saleculatorLinkToken={usesDeviceLink}
+      deviceLinkName={usesDeviceLink ? deviceLinkName : undefined}
+      onOpenChange={(open) => {
+        if (!open) setIntegrationToken(null);
+      }}
+    />
+
+    <ShopConfirmDialog
+      open={rotateOpen}
+      phase={rotatePhase}
+      title="Rotate integration token?"
+      description={
+        usesDeviceLink
+          ? posProvider === "saleculator"
+            ? "This creates a new Saleculator link_token and immediately invalidates the previous one. The till must re-link with POST /api/v1/pos/links using the new token."
+            : `This creates a new ${deviceLinkName} link_token and immediately invalidates the previous one. The till must re-link with POST /api/v1/pos/links using the new token.`
+          : "This creates a new integration token and immediately invalidates the previous one. Any POS or third-party clients using the old token will stop working until you update them."
+      }
+      confirmLabel="Rotate token"
+      confirmVariant="destructive"
+      icon={RefreshCwIcon}
+      shopName={shopDisplayName}
+      shopId={shopId}
+      loadingTitle="Rotating token…"
+      loadingDescription="Issuing a new integration secret."
+      errorTitle="Could not rotate token"
+      errorMessage={rotateError}
+      onOpenChange={(open) => {
+        if (!open) closeRotateConfirm();
+      }}
+      onConfirm={() => void confirmRotateToken()}
+      onRetry={() => void confirmRotateToken()}
+    />
+    </>
   );
 }
