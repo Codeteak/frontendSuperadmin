@@ -1815,7 +1815,7 @@ export async function mockAttachShopLink(
     const message =
       provider === "saleculator"
         ? "integration_enabled must be true on the shop before attaching Saleculator lane"
-        : `integration_enabled must be true before attaching ${provider}. Enable Integration on Features, rotate the token (that plaintext is the link_token), then attach that provider's pull profile.`;
+        : `integration_enabled must be true before attaching ${provider}. Enable Integration on the POS tab, rotate the token (that plaintext is the link_token), then attach that provider's pull profile.`;
     throw Object.assign(new Error(message), {
       status: 400,
       body: {

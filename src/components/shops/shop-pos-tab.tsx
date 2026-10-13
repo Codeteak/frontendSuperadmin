@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCwIcon } from "lucide-react";
 
@@ -29,7 +28,7 @@ import {
   POS_PROVIDER_LABELS,
   PULL_POS_ATTACH_PRESET,
 } from "@/lib/api/pos";
-import { rotateShopIntegrationToken } from "@/lib/api/shops";
+import { patchShop, rotateShopIntegrationToken } from "@/lib/api/shops";
 import { parseApiFormError } from "@/lib/api-form-error";
 import { appToast } from "@/lib/app-toast";
 import { deviceLinkLabel } from "@/lib/pos/contract";
@@ -146,12 +145,6 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
       : null);
   const sync = (syncQuery.data as PosSyncStatus | undefined) ?? null;
 
-  const integrationEnabled = Boolean(
-    shop?.features?.integration_enabled ?? shop?.integration_enabled,
-  );
-  const hasIntegrationToken = Boolean(
-    shop?.features?.has_integration_token,
-  );
   const posProvider = String(linkQuery.data?.provider ?? "")
     .trim()
     .toLowerCase();
@@ -162,6 +155,10 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
   const shopDisplayName =
     shop?.shop_name ?? shop?.profile?.shop_name ?? shopId;
 
+  const [integrationEnabled, setIntegrationEnabled] = useState(false);
+  const [integrationRateLimit, setIntegrationRateLimit] = useState("100");
+  const [hasIntegrationToken, setHasIntegrationToken] = useState(false);
+  const [integrationSaving, setIntegrationSaving] = useState(false);
   const [integrationToken, setIntegrationToken] = useState<string | null>(null);
   const [tokenDialogMode, setTokenDialogMode] = useState<"created" | "rotated">(
     "rotated",
@@ -170,6 +167,16 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
   const [rotatePhase, setRotatePhase] =
     useState<ShopConfirmPhase>("confirm");
   const [rotateError, setRotateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIntegrationEnabled(
+      Boolean(shop?.features?.integration_enabled ?? shop?.integration_enabled),
+    );
+    setIntegrationRateLimit(
+      String(shop?.features?.integration_rate_limit ?? 100),
+    );
+    setHasIntegrationToken(Boolean(shop?.features?.has_integration_token));
+  }, [shop]);
 
   const [form, setForm] = useState({
     mapping_profile_id: "",
@@ -340,11 +347,14 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
       return;
     }
 
-    if (preset.requiresIntegration && !integrationEnabled) {
+    const savedIntegrationEnabled = Boolean(
+      shop?.features?.integration_enabled ?? shop?.integration_enabled,
+    );
+    if (preset.requiresIntegration && !savedIntegrationEnabled) {
       const msg =
         selectedProvider === "saleculator"
-          ? "Enable Integration on the Features tab before attaching Saleculator."
-          : `Enable Integration on the Features tab before attaching ${pullName}.`;
+          ? "Enable Integration above and save before attaching Saleculator."
+          : `Enable Integration above and save before attaching ${pullName}.`;
       setError(msg);
       appToast.error(msg);
       return;
@@ -485,7 +495,7 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
     }
   }
 
-  async function onFeatures() {
+  async function onLinkCapabilities() {
     setError(null);
     try {
       await patchLinkFeatures(shopId, {
@@ -494,12 +504,38 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
         order_pull_enabled: form.order_pull_enabled,
         is_active: form.is_active,
       });
-      appToast.success("POS link features updated.");
+      appToast.success("POS link capabilities updated.");
       await load();
     } catch (err) {
       const msg = parseApiFormError(err, "Update failed").message;
       setError(msg);
       appToast.error(msg);
+    }
+  }
+
+  async function onSaveIntegration() {
+    setError(null);
+    setIntegrationSaving(true);
+    try {
+      const result = await patchShop(shopId, {
+        integration_enabled: integrationEnabled,
+        integration_rate_limit: Number(integrationRateLimit) || 100,
+      });
+      if (result.integration_token) {
+        setTokenDialogMode("created");
+        setIntegrationToken(result.integration_token);
+        appToast.success("Integration saved. Copy the link token now.");
+      } else {
+        appToast.success("Integration settings saved.");
+      }
+      await shopQuery.refetch();
+      await load();
+    } catch (err) {
+      const msg = parseApiFormError(err, "Failed to save integration").message;
+      setError(msg);
+      appToast.error(msg);
+    } finally {
+      setIntegrationSaving(false);
     }
   }
 
@@ -547,58 +583,80 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
       <PosPlaybook playbook={attachPlaybook} />
 
       <ShopSection
-        title="Integration token"
-        description="POS / third-party secret for this shop. Enable Integration on Features first."
+        title="Integration"
+        description="Enable POS / third-party integration and manage the one-time link token (PIN-gated)."
       >
-        <DetailList
-          items={[
-            {
-              label: "Integration enabled",
-              value: integrationEnabled ? "Yes" : "No",
-            },
-            {
-              label: "Has integration token",
-              value: hasIntegrationToken ? "Yes" : "No",
-            },
-          ]}
-        />
-        {!integrationEnabled ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Turn on{" "}
-            <Link
-              href={`/shops/${shopId}?tab=features`}
-              className="font-medium underline underline-offset-2"
+        <div className="space-y-4">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 accent-primary"
+              checked={integrationEnabled}
+              onChange={(e) => setIntegrationEnabled(e.target.checked)}
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">
+                Integration enabled
+              </span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {usesDeviceLink
+                  ? `Required for ${deviceLinkName}. Saving enable for the first time mints the device link_token (shown once).`
+                  : "Allow third-party / POS API integration for this shop."}
+              </span>
+            </span>
+          </label>
+
+          <Field label="Integration rate limit">
+            <Input
+              inputMode="numeric"
+              value={integrationRateLimit}
+              onChange={(e) =>
+                setIntegrationRateLimit(e.target.value.replace(/\D/g, ""))
+              }
+            />
+          </Field>
+
+          <DetailList
+            items={[
+              {
+                label: "Has integration token",
+                value: hasIntegrationToken ? "Yes" : "No",
+              },
+            ]}
+          />
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              disabled={integrationSaving}
+              onClick={() => void onSaveIntegration()}
             >
-              Integration enabled
-            </Link>{" "}
-            on the Features tab, then return here to rotate the token.
-          </p>
-        ) : (
-          <div className="mt-4 rounded-xl border bg-muted/30 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">Rotate integration token</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {usesDeviceLink
-                    ? posProvider === "saleculator"
-                      ? "Issues a new link_token for Saleculator and invalidates the previous one. The till must re-link after rotate. Shown only once."
-                      : `Issues a new link_token for ${deviceLinkName} and invalidates the previous one. The till must re-link after rotate. Shown only once.`
-                    : "Issues a new secret and invalidates the previous token. The new token is shown only once."}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                disabled={rotatePhase === "loading"}
-                onClick={openRotateConfirm}
-              >
-                <RefreshCwIcon className="size-4" />
-                Rotate token
-              </Button>
-            </div>
+              {integrationSaving ? "Saving…" : "Save integration"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!integrationEnabled || rotatePhase === "loading"}
+              onClick={openRotateConfirm}
+            >
+              <RefreshCwIcon className="size-4" />
+              Rotate token
+            </Button>
           </div>
-        )}
+
+          {integrationEnabled ? (
+            <p className="text-xs text-muted-foreground">
+              {usesDeviceLink
+                ? `Rotate issues a new ${deviceLinkName} link_token and invalidates the previous one. The till must re-link. Plaintext is shown only once.`
+                : "Rotate issues a new secret and invalidates the previous token. Plaintext is shown only once."}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Turn on Integration enabled and save to mint the first token, then
+              attach a POS template below.
+            </p>
+          )}
+        </div>
       </ShopSection>
 
       <ShopSection
@@ -608,16 +666,9 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
         {selectedProvider === "saleculator" && !integrationEnabled ? (
           <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
             Saleculator requires{" "}
-            <span className="font-medium">Integration enabled</span>. Turn it on
-            in the{" "}
-            <Link
-              href={`/shops/${shopId}?tab=features`}
-              className="font-medium underline underline-offset-2"
-            >
-              Features
-            </Link>{" "}
-            tab, then rotate/create the token above (that plaintext is Saleculator{" "}
-            <span className="font-medium">link_token</span>), then attach{" "}
+            <span className="font-medium">Integration enabled</span> above.
+            Save to mint the <span className="font-medium">link_token</span>,
+            then attach{" "}
             <span className="font-medium">saleculator-pull-v1</span>.
           </div>
         ) : null}
@@ -649,16 +700,9 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
         {pullPartner && !integrationEnabled ? (
           <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
             {pullName} requires{" "}
-            <span className="font-medium">Integration enabled</span>. Turn it on
-            in the{" "}
-            <Link
-              href={`/shops/${shopId}?tab=features`}
-              className="font-medium underline underline-offset-2"
-            >
-              Features
-            </Link>{" "}
-            tab, rotate/create the token (that plaintext is the{" "}
-            <span className="font-medium">link_token</span>), then attach{" "}
+            <span className="font-medium">Integration enabled</span> above. Save
+            to mint the <span className="font-medium">link_token</span>, then
+            attach{" "}
             <span className="font-medium">{selectedTemplateName}</span>.
           </div>
         ) : null}
@@ -668,7 +712,7 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
             <p className="font-medium">{pullName} device link</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
               <li>
-                Features token plaintext = device{" "}
+                Integration token plaintext = device{" "}
                 <code className="text-xs">link_token</code>
               </li>
               <li>
@@ -986,10 +1030,10 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => void onFeatures()}
+              onClick={() => void onLinkCapabilities()}
               disabled={!link}
             >
-              Update features
+              Update link capabilities
             </Button>
           </div>
         </form>
@@ -1064,20 +1108,8 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
                 value: yesNo(link.webhook_secret_configured),
               },
               {
-                label: "Integration enabled",
-                value: yesNo(link.integration_enabled),
-              },
-              {
-                label: "Integration token",
-                value: yesNo(link.integration_token_present),
-              },
-              {
                 label: "Link token ready",
                 value: yesNo(link.link_token_ready),
-              },
-              {
-                label: "Token fingerprint",
-                value: yesNo(link.integration_token_fingerprint_present),
               },
               {
                 label: "Config version",
@@ -1144,25 +1176,14 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
                 { label: "Lane", value: sync.lane },
                 { label: "Active", value: yesNo(sync.is_active) },
                 {
-                  label: "Integration enabled",
-                  value: yesNo(sync.integration_enabled),
-                },
-                {
-                  label: "Integration token",
-                  value: yesNo(sync.integration_token_present),
-                },
-                {
                   label: "Link token ready",
                   value: yesNo(sync.link_token_ready),
                 },
                 {
-                  label: "Token fingerprint",
-                  value: yesNo(sync.integration_token_fingerprint_present),
-                },
-                {
                   label: "Catalog sync",
                   value: yesNo(sync.catalog_sync_enabled),
-                },                {
+                },
+                {
                   label: "Order push",
                   value: yesNo(sync.order_push_enabled),
                 },

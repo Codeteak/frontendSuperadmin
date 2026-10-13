@@ -337,11 +337,8 @@ export function shopFeatureFlagsFromDetail(
       f.drive_thru_enabled ?? shop.drive_thru_enabled,
     ),
     ecom_slug: f.ecom_slug ?? shop.ecom_slug ?? undefined,
-    integration_enabled: Boolean(f.integration_enabled),
-    integration_rate_limit:
-      typeof f.integration_rate_limit === "number"
-        ? f.integration_rate_limit
-        : 100,
+    // Do not restore integration here — soft-delete clears the token, and
+    // re-enabling mints a one-time secret that must happen on the PIN-gated POS tab.
     is_msg_activated: Boolean(f.is_msg_activated),
     single_msg: Boolean(f.single_msg),
   };
@@ -349,7 +346,8 @@ export function shopFeatureFlagsFromDetail(
 
 /**
  * Soft-delete a shop without wiping feature flags (especially ecom_enabled).
- * Some backends clear ecom on DELETE soft — we re-apply the previous flags.
+ * Some backends clear ecom on DELETE soft — we re-apply the previous flags
+ * (except POS integration, which stays off until re-enabled on the POS tab).
  */
 export async function softDeleteShop(
   shopId: string,

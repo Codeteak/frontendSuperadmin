@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { DownloadIcon, KeyRoundIcon, ShieldAlertIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { KeyRoundIcon, ShieldAlertIcon } from "lucide-react";
 
 import { CopyButton } from "@/components/shared/copy-button";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { appToast } from "@/lib/app-toast";
 
 type IntegrationTokenDialogProps = {
   open: boolean;
@@ -29,21 +28,6 @@ type IntegrationTokenDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-function downloadTokenCsv(shopId: string, token: string) {
-  const escapedShopId = `"${shopId.replaceAll('"', '""')}"`;
-  const escapedToken = `"${token.replaceAll('"', '""')}"`;
-  const csv = `shop_id,integration_token,link_token\n${escapedShopId},${escapedToken},${escapedToken}\n`;
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `${shopId}-integration-token.csv`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-}
-
 export function IntegrationTokenDialog({
   open,
   shopId,
@@ -54,18 +38,16 @@ export function IntegrationTokenDialog({
   deviceLinkName,
   onOpenChange,
 }: IntegrationTokenDialogProps) {
-  const [downloaded, setDownloaded] = useState(false);
+  const [savedAck, setSavedAck] = useState(false);
   const isRotated = mode === "rotated";
   const linkName = deviceLinkName?.trim() || "Saleculator";
 
-  function handleDownload() {
-    downloadTokenCsv(shopId, token);
-    setDownloaded(true);
-    appToast.success("Integration token CSV downloaded.");
-  }
+  useEffect(() => {
+    if (open) setSavedAck(false);
+  }, [open, token]);
 
   function handleClose() {
-    setDownloaded(false);
+    setSavedAck(false);
     onOpenChange(false);
   }
 
@@ -73,12 +55,16 @@ export function IntegrationTokenDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) handleClose();
-        else onOpenChange(next);
+        if (!next) {
+          if (!savedAck) return;
+          handleClose();
+          return;
+        }
+        onOpenChange(next);
       }}
     >
       <DialogContent
-        showCloseButton
+        showCloseButton={false}
         className="gap-0 overflow-hidden border bg-card p-0 shadow-xl sm:max-w-lg"
       >
         <div className="p-6 pb-5">
@@ -93,8 +79,8 @@ export function IntegrationTokenDialog({
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed">
               {isRotated
-                ? "A new plaintext token was issued and the previous token is now invalid. Copy or download it now — it will not be shown again."
-                : "This plaintext token is shown only once. Copy or download it now — it will not be shown again and is not stored in this panel."}
+                ? "A new plaintext token was issued and the previous token is now invalid. Copy it now — it will not be shown again."
+                : "This plaintext token is shown only once. Copy it now — it will not be shown again and is not stored in this panel."}
               {saleculatorLinkToken
                 ? ` For ${linkName}, paste this value as the device link_token (POST /api/v1/pos/links).`
                 : null}
@@ -135,7 +121,7 @@ export function IntegrationTokenDialog({
           <div className="mt-4 space-y-2">
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {saleculatorLinkToken
-                ? "Integration token (= Saleculator link_token)"
+                ? "Integration token (= device link_token)"
                 : "Integration token"}
             </p>
             <div className="flex items-start gap-2 rounded-xl border bg-background p-3">
@@ -149,15 +135,24 @@ export function IntegrationTokenDialog({
               />
             </div>
           </div>
+
+          <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 accent-primary"
+              checked={savedAck}
+              onChange={(e) => setSavedAck(e.target.checked)}
+            />
+            <span>
+              I have copied and stored this token securely. I understand it
+              cannot be shown again.
+            </span>
+          </label>
         </div>
 
         <DialogFooter className="gap-2 sm:justify-end">
-          <Button type="button" variant="outline" onClick={handleDownload}>
-            <DownloadIcon className="size-4" />
-            {downloaded ? "Download again (CSV)" : "Download CSV"}
-          </Button>
-          <Button type="button" onClick={handleClose}>
-            I saved the token
+          <Button type="button" disabled={!savedAck} onClick={handleClose}>
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>

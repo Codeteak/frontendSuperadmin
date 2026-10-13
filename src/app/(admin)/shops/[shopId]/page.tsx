@@ -24,7 +24,6 @@ import {
   ShopConfirmDialog,
   type ShopConfirmPhase,
 } from "@/components/shops/shop-confirm-dialog";
-import { IntegrationTokenDialog } from "@/components/shops/integration-token-dialog";
 import { RiderEditDialog } from "@/components/shops/rider-edit-dialog";
 import { VenuePickerEditDialog } from "@/components/shops/venue-picker-edit-dialog";
 import { CopyButton } from "@/components/shared/copy-button";
@@ -89,14 +88,12 @@ import {
 } from "@/lib/api/venue-pickers";
 import {
   shopDetailQuery,
-  shopPosLinkQuery,
   shopPromotionQuery,
   shopProductsQuery,
   shopRidersQuery,
   shopSubscriptionQuery,
   shopVenuePickersQuery,
 } from "@/lib/queries/shops";
-import { deviceLinkLabel } from "@/lib/pos/contract";
 import { digitsOnly, isValidPhone } from "@/lib/shop-create-validation";
 import { validateShopDeliverySettings } from "@/lib/delivery-settings";
 import { toE164Phone } from "@yaadro/phone-kit";
@@ -1204,14 +1201,11 @@ function readShopFeatures(shop: ShopDetail): Required<
     | "room_service_enabled"
     | "pickup_ordering_enabled"
     | "drive_thru_enabled"
-    | "integration_enabled"
     | "is_msg_activated"
     | "single_msg"
   >
 > & {
   ecom_slug: string;
-  integration_rate_limit: string;
-  has_integration_token: boolean;
 } {
   const f = (shop.features ?? {}) as ShopFeatures;
   return {
@@ -1244,9 +1238,6 @@ function readShopFeatures(shop: ShopDetail): Required<
       f.drive_thru_enabled ?? shop.drive_thru_enabled,
     ),
     ecom_slug: String(f.ecom_slug ?? shop.ecom_slug ?? ""),
-    integration_enabled: Boolean(f.integration_enabled),
-    integration_rate_limit: String(f.integration_rate_limit ?? 100),
-    has_integration_token: Boolean(f.has_integration_token),
     is_msg_activated: Boolean(f.is_msg_activated),
     single_msg: Boolean(f.single_msg),
   };
@@ -1327,18 +1318,6 @@ function FeaturesTab({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [highlightFields, setHighlightFields] = useState<string[]>([]);
-  const [integrationToken, setIntegrationToken] = useState<string | null>(null);
-  const [tokenDialogMode, setTokenDialogMode] = useState<"created" | "rotated">(
-    "created",
-  );
-  const posLinkQuery = useQuery(shopPosLinkQuery(shop.shop_id));
-  const posProvider = String(posLinkQuery.data?.provider ?? "")
-    .trim()
-    .toLowerCase();
-  const usesDeviceLink =
-    String(posLinkQuery.data?.connector_type ?? "").trim().toLowerCase() ===
-    "saleculator_pull";
-  const deviceLinkName = deviceLinkLabel(posProvider);
 
   useEffect(() => {
     setForm(readShopFeatures(shop));
@@ -1395,9 +1374,7 @@ function FeaturesTab({
     window.requestAnimationFrame(() => {
       focusHighlightedField(
         parsed.highlightFields.map((f) =>
-          f === "ecom_slug" || f === "integration_rate_limit"
-            ? `features_${f}`
-            : `feat_${f}`,
+          f === "ecom_slug" ? `features_${f}` : `feat_${f}`,
         ),
       );
       // Also try data-field attribute via helper's second pass
@@ -1472,7 +1449,7 @@ function FeaturesTab({
         pickup_ordering_enabled: form.pickup_ordering_enabled,
         drive_thru_enabled: form.drive_thru_enabled,
       });
-      const result = await patchShop(shop.shop_id, {
+      await patchShop(shop.shop_id, {
         ecom_enabled: ecomEnabled,
         ecom_slug: form.ecom_slug || null,
         ecom_order_confirmation_enabled: ecomEnabled
@@ -1480,7 +1457,7 @@ function FeaturesTab({
           : false,
         scheduled_order: form.scheduled_order,
         pre_booking_enabled: form.pre_booking_enabled,
-      nightly_stock_reset_enabled: form.nightly_stock_reset_enabled,
+        nightly_stock_reset_enabled: form.nightly_stock_reset_enabled,
         merge_order: form.merge_order,
         return_option: form.return_option,
         customer_ticket: ecomEnabled ? form.customer_ticket : false,
@@ -1490,18 +1467,10 @@ function FeaturesTab({
         room_service_enabled: venueFlags.room_service_enabled,
         pickup_ordering_enabled: venueFlags.pickup_ordering_enabled,
         drive_thru_enabled: venueFlags.drive_thru_enabled,
-        integration_enabled: form.integration_enabled,
-        integration_rate_limit: Number(form.integration_rate_limit) || 100,
         is_msg_activated: form.is_msg_activated,
         single_msg: form.single_msg,
       });
-      if (result.integration_token) {
-        setTokenDialogMode("created");
-        setIntegrationToken(result.integration_token);
-        appToast.success("Feature flags saved. Save your integration token now.");
-      } else {
-        appToast.success("Feature flags saved.");
-      }
+      appToast.success("Feature flags saved.");
       await onSaved();
     } catch (err) {
       applyFormError(err, "Failed to save feature flags");
@@ -1514,14 +1483,10 @@ function FeaturesTab({
     return highlightFields.includes(field) || Boolean(fieldErrors[field]);
   }
 
-  const shopDisplayName =
-    shop.shop_name ?? shop.profile?.shop_name ?? shop.shop_id;
-
   return (
-    <>
     <ShopSection
       title="Feature flags"
-      description="Shop feature toggles. Confirmation and tickets require ecom enabled."
+      description="Shop feature toggles. Confirmation and tickets require ecom enabled. POS integration lives on the POS tab (PIN required)."
     >
       <form onSubmit={onSave} className="space-y-6">
         <Field label="Ecom slug">
@@ -1690,21 +1655,6 @@ function FeaturesTab({
             </p>
           ) : null}
           <FeatureToggleRow
-            id="feat_integration_enabled"
-            label="Integration enabled"
-            description={
-              usesDeviceLink
-                ? posProvider === "saleculator"
-                  ? "Required for Saleculator. The integration token plaintext is the device link_token (POST /api/v1/pos/links)."
-                  : `Required for ${deviceLinkName}. The integration token plaintext is the device link_token (POST /api/v1/pos/links).`
-                : "Allow third-party / POS API integration for this shop."
-            }
-            checked={form.integration_enabled}
-            invalid={isHighlighted("integration_enabled")}
-            error={fieldErrors.integration_enabled}
-            onChange={(v) => setFlag("integration_enabled", v)}
-          />
-          <FeatureToggleRow
             id="feat_is_msg_activated"
             label="Messaging activated"
             description="Enable shop messaging / notification channel."
@@ -1725,53 +1675,16 @@ function FeaturesTab({
           />
         </div>
 
-        <div className="space-y-4">
-          <DetailList
-            items={[
-              {
-                label: "Has integration token",
-                value: form.has_integration_token ? "Yes" : "No",
-              },
-            ]}
-          />
-          <Field label="Integration rate limit">
-            <Input
-              id="features_integration_rate_limit"
-              data-field="integration_rate_limit"
-              inputMode="numeric"
-              value={form.integration_rate_limit}
-              aria-invalid={
-                isHighlighted("integration_rate_limit") || undefined
-              }
-              className={
-                isHighlighted("integration_rate_limit")
-                  ? "border-destructive focus-visible:ring-destructive/30"
-                  : undefined
-              }
-              onChange={(e) =>
-                setFlag(
-                  "integration_rate_limit",
-                  e.target.value.replace(/\D/g, ""),
-                )
-              }
-            />
-            {fieldErrors.integration_rate_limit ? (
-              <p className="mt-1.5 text-xs font-medium text-destructive">
-                {fieldErrors.integration_rate_limit}
-              </p>
-            ) : null}
-          </Field>
-          <p className="text-xs text-muted-foreground">
-            Rotate the integration token from the{" "}
-            <Link
-              href={`/shops/${shop.shop_id}?tab=pos`}
-              className="font-medium underline underline-offset-2"
-            >
-              POS
-            </Link>{" "}
-            tab.
-          </p>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          POS integration enable, rate limit, and link token are managed on the{" "}
+          <Link
+            href={`/shops/${shop.shop_id}?tab=pos`}
+            className="font-medium underline underline-offset-2"
+          >
+            POS
+          </Link>{" "}
+          tab (PIN required).
+        </p>
 
         {error ? (
           <div
@@ -1787,20 +1700,6 @@ function FeaturesTab({
         </Button>
       </form>
     </ShopSection>
-
-    <IntegrationTokenDialog
-      open={Boolean(integrationToken)}
-      shopId={shop.shop_id}
-      shopName={shopDisplayName}
-      token={integrationToken ?? ""}
-      mode={tokenDialogMode}
-      saleculatorLinkToken={usesDeviceLink}
-      deviceLinkName={usesDeviceLink ? deviceLinkName : undefined}
-      onOpenChange={(open) => {
-        if (!open) setIntegrationToken(null);
-      }}
-    />
-    </>
   );
 }
 

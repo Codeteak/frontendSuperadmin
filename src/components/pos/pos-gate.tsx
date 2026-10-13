@@ -14,10 +14,7 @@ import {
   resetPosGatePin,
   verifyPosGatePin,
 } from "@/lib/api/pos-gate";
-import {
-  isPosGateUnlocked,
-  setPosGateUnlocked,
-} from "@/lib/pos-gate-session";
+import { clearPosGateUnlocked } from "@/lib/pos-gate-session";
 
 type GateStep = "unlock" | "force-change" | "forgot-otp" | "forgot-reset";
 
@@ -38,16 +35,10 @@ export function PosGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    // Never persist unlock across navigations; clear legacy sessionStorage flags.
+    clearPosGateUnlocked();
 
     async function bootstrap() {
-      if (isPosGateUnlocked()) {
-        if (!cancelled) {
-          setUnlocked(true);
-          setReady(true);
-        }
-        return;
-      }
-
       try {
         const status = await getPosGateStatus();
         if (cancelled) return;
@@ -65,11 +56,11 @@ export function PosGate({ children }: { children: React.ReactNode }) {
     void bootstrap();
     return () => {
       cancelled = true;
+      clearPosGateUnlocked();
     };
   }, []);
 
   function unlockSession() {
-    setPosGateUnlocked();
     setUnlocked(true);
     setError(null);
     setInfo(null);
@@ -192,7 +183,7 @@ export function PosGate({ children }: { children: React.ReactNode }) {
               ? "The default PIN must be changed before POS tools unlock."
               : step.startsWith("forgot")
                 ? "Reset the shared POS PIN with a one-time code."
-                : "Enter the shared POS PIN to unlock this section for this browser tab."}
+                : "Enter the shared POS PIN to unlock this section. You will need the PIN again each time you open POS."}
           </p>
         </div>
       </div>

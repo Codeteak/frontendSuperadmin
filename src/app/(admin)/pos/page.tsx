@@ -164,7 +164,7 @@ const linkColumns: ColumnDef<PosShopLink>[] = [
     meta: { label: "Lane" },
   },
   {
-    id: "features",
+    id: "capabilities",
     accessorFn: (row) =>
       [
         row.catalog_sync_enabled ? "catalog" : null,
@@ -173,9 +173,9 @@ const linkColumns: ColumnDef<PosShopLink>[] = [
       ]
         .filter(Boolean)
         .join(", "),
-    header: "Features",
+    header: "Capabilities",
     cell: ({ row }) => {
-      const features = [
+      const capabilities = [
         row.original.catalog_sync_enabled ? "catalog" : null,
         row.original.order_push_enabled ? "push" : null,
         row.original.order_pull_enabled ? "pull" : null,
@@ -183,10 +183,12 @@ const linkColumns: ColumnDef<PosShopLink>[] = [
         .filter(Boolean)
         .join(", ");
       return (
-        <span className="text-xs text-muted-foreground">{features || "—"}</span>
+        <span className="text-xs text-muted-foreground">
+          {capabilities || "—"}
+        </span>
       );
     },
-    meta: { label: "Features" },
+    meta: { label: "Capabilities" },
   },
   {
     id: "status",
