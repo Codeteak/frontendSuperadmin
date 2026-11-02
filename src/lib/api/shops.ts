@@ -547,11 +547,19 @@ export function updateShopProduct(
   });
 }
 
-export function deleteShopProduct(shopId: string, productId: number | string) {
-  if (isDevelopmentMode()) return mockDeleteShopProduct(shopId, productId);
-  return apiFetch<ShopProduct>(`/v2/shops/${shopId}/products/${productId}`, {
-    method: "DELETE",
-  });
+export function deleteShopProduct(
+  shopId: string,
+  productId: number | string,
+  hard = false,
+) {
+  if (isDevelopmentMode()) return mockDeleteShopProduct(shopId, productId, hard);
+  return apiFetch<ShopProduct | { deleted: true; mode: "hard"; product_id: number }>(
+    `/v2/shops/${shopId}/products/${productId}`,
+    {
+      method: "DELETE",
+      params: { mode: hard ? "hard" : "soft" },
+    },
+  );
 }
 
 export function bulkCreateShopProducts(
@@ -582,13 +590,22 @@ export function bulkUpdateShopProducts(
   );
 }
 
-export function bulkDeleteShopProducts(shopId: string, productIds: number[]) {
-  if (isDevelopmentMode()) return mockBulkDeleteShopProducts(shopId, productIds);
+export function bulkDeleteShopProducts(
+  shopId: string,
+  productIds: number[],
+  hard = false,
+) {
+  if (isDevelopmentMode()) {
+    return mockBulkDeleteShopProducts(shopId, productIds, hard);
+  }
   return apiFetch<BulkShopProductResult>(
     `/v2/shops/${shopId}/products/bulk-delete`,
     {
       method: "POST",
-      body: JSON.stringify({ product_ids: productIds }),
+      body: JSON.stringify({
+        product_ids: productIds,
+        mode: hard ? "hard" : "soft",
+      }),
     },
   );
 }

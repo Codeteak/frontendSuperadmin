@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  EraserIcon,
   PencilIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -108,37 +109,48 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
     setSelected(new Set(selectableIds));
   }
 
-  async function onDeleteOne(product: ShopProduct) {
+  async function onDeleteOne(product: ShopProduct, hard = false) {
     const id = Number(product.id);
     const name = product.product_name ?? product.name ?? `#${id}`;
     if (!Number.isFinite(id) || id <= 0) return;
-    if (!confirm(`Soft-delete product "${name}"?`)) return;
+    const ok = hard
+      ? confirm(
+          `HARD delete "${name}" permanently?\n\nRemoves the product row, session/pre-booking links, and daily specials. Order lines keep their names but lose the product link. This cannot be undone.`,
+        )
+      : confirm(`Soft-delete product "${name}"?`);
+    if (!ok) return;
     try {
-      await deleteShopProduct(shopId, id);
-      appToast.success("Product soft-deleted.");
+      await deleteShopProduct(shopId, id, hard);
+      appToast.success(hard ? "Product permanently deleted." : "Product soft-deleted.");
       await refresh();
     } catch (err) {
       appToast.error(errorMessage(err, "Delete failed"));
     }
   }
 
-  async function onBulkDelete() {
+  async function onBulkDelete(hard = false) {
     const ids = [...selected];
     if (!ids.length) return;
-    if (!confirm(`Soft-delete ${ids.length} selected product(s)?`)) return;
+    const ok = hard
+      ? confirm(
+          `HARD delete ${ids.length} selected product(s) permanently?\n\nThis cannot be undone.`,
+        )
+      : confirm(`Soft-delete ${ids.length} selected product(s)?`);
+    if (!ok) return;
     setBusyDelete(true);
     try {
-      const result = await bulkDeleteShopProducts(shopId, ids);
+      const result = await bulkDeleteShopProducts(shopId, ids, hard);
       const { succeeded, failed, total } = result.summary;
+      const verb = hard ? "Hard-deleted" : "Deleted";
       if (failed === 0) {
-        appToast.success(`Deleted ${succeeded}/${total} products.`);
+        appToast.success(`${verb} ${succeeded}/${total} products.`);
       } else {
         const sample = result.results
           .filter((r) => !r.ok)
           .slice(0, 3)
           .map((r) => `${r.product_id}: ${r.error_code}`)
           .join("; ");
-        appToast.error(`Deleted ${succeeded}, failed ${failed}. ${sample}`);
+        appToast.error(`${verb} ${succeeded}, failed ${failed}. ${sample}`);
       }
       await refresh();
     } catch (err) {
@@ -323,8 +335,8 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
                       type="button"
                       size="icon-xs"
                       variant="ghost"
-                      aria-label="Delete product"
-                      onClick={() => void onDeleteOne(product)}
+                      aria-label="Soft delete product"
+                      onClick={() => void onDeleteOne(product, false)}
                     />
                   }
                 >
@@ -332,10 +344,27 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
                 </TooltipTrigger>
                 <TooltipContent>Soft delete</TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      aria-label="Hard delete product"
+                      onClick={() => void onDeleteOne(product, true)}
+                    />
+                  }
+                >
+                  <EraserIcon className="size-3.5" />
+                </TooltipTrigger>
+                <TooltipContent>Hard delete</TooltipContent>
+              </Tooltip>
             </div>
           );
         },
-        size: 90,
+        size: 110,
       },
     ];
   }, [allSelected, someSelected, selected]);
@@ -376,10 +405,20 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
             variant="outline"
             size="sm"
             disabled={selected.size === 0 || busyDelete}
-            onClick={() => void onBulkDelete()}
+            onClick={() => void onBulkDelete(false)}
           >
             <Trash2Icon className="size-3.5" />
-            Delete selected
+            Soft delete selected
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            disabled={selected.size === 0 || busyDelete}
+            onClick={() => void onBulkDelete(true)}
+          >
+            <EraserIcon className="size-3.5" />
+            Hard delete selected
           </Button>
           <Button type="button" size="sm" onClick={openCreate}>
             <PlusIcon className="size-3.5" />

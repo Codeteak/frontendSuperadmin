@@ -1330,6 +1330,7 @@ export async function mockUpdateShopProduct(
 export async function mockDeleteShopProduct(
   _shopId: string,
   productId: number | string,
+  _hard = false,
 ): Promise<ShopProduct> {
   const id = Number(productId);
   const index = mockProducts.findIndex((p) => Number(p.id) === id);
@@ -1440,13 +1441,14 @@ export async function mockBulkUpdateShopProducts(
 export async function mockBulkDeleteShopProducts(
   shopId: string,
   productIds: number[],
+  hard = false,
 ): Promise<BulkShopProductResult> {
   const unique = [...new Set(productIds)];
   const results = [];
   for (let i = 0; i < unique.length; i += 1) {
     const productId = unique[i]!;
     try {
-      await mockDeleteShopProduct(shopId, productId);
+      await mockDeleteShopProduct(shopId, productId, hard);
       results.push({
         index: i,
         ok: true,
