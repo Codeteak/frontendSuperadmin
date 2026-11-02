@@ -57,9 +57,7 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [busyDelete, setBusyDelete] = useState(false);
 
-  const productsQuery = useQuery(
-    shopProductsQuery(shopId, { page: 1, limit: 500 }),
-  );
+  const productsQuery = useQuery(shopProductsQuery(shopId));
   const items = productsQuery.data?.items ?? [];
   const loading = productsQuery.isPending;
   const error = productsQuery.error

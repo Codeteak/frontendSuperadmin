@@ -476,6 +476,52 @@ export function listShopProducts(
   });
 }
 
+/** admin-api listShopProductsQuerySchema: limit max 100 */
+const SHOP_PRODUCTS_PAGE_SIZE = 100;
+
+/** Fetch every product page until the shop catalog is loaded. */
+export async function listAllShopProducts(
+  shopId: string,
+  params?: {
+    q?: string;
+    status?: string;
+    availability?: string;
+    pageSize?: number;
+  },
+) {
+  const pageSize = Math.min(
+    Math.max(params?.pageSize ?? SHOP_PRODUCTS_PAGE_SIZE, 1),
+    SHOP_PRODUCTS_PAGE_SIZE,
+  );
+  const all: ShopProduct[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const data = await listShopProducts(shopId, {
+      page,
+      limit: pageSize,
+      q: params?.q,
+      status: params?.status,
+      availability: params?.availability,
+    });
+    const items = data.items ?? [];
+    all.push(...items);
+    totalPages =
+      data.total_pages ??
+      (data.total != null ? Math.ceil(data.total / pageSize) : 1);
+    if (items.length < pageSize) break;
+    page += 1;
+  } while (page <= totalPages && page <= 50);
+
+  return {
+    items: all,
+    total: all.length,
+    page: 1,
+    limit: all.length,
+  } satisfies Paginated<ShopProduct>;
+}
+
 export function getShopProduct(shopId: string, productId: number | string) {
   if (isDevelopmentMode()) return mockGetShopProduct(shopId, productId);
   return apiFetch<ShopProduct>(`/v2/shops/${shopId}/products/${productId}`);

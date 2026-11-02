@@ -7,6 +7,7 @@ import {
   getPromotion,
   getShop,
   listAllShops,
+  listAllShopProducts,
   listShopProducts,
   listShops,
   getShopWhatsApp,
@@ -85,11 +86,31 @@ export function shopDetailQuery(shopId: string) {
 
 export function shopProductsQuery(
   shopId: string,
-  params: { page?: number; limit?: number; q?: string },
+  params?: {
+    page?: number;
+    limit?: number;
+    q?: string;
+    status?: string;
+    availability?: string;
+    /** When true (default for the products tab), page through API max limit=100. */
+    all?: boolean;
+  },
 ) {
+  const fetchAll = params?.all !== false && params?.page == null;
   return queryOptions({
-    queryKey: shopKeys.products(shopId, params),
-    queryFn: () => listShopProducts(shopId, params),
+    queryKey: shopKeys.products(shopId, {
+      ...params,
+      all: fetchAll,
+    }),
+    queryFn: () =>
+      fetchAll
+        ? listAllShopProducts(shopId, {
+            q: params?.q,
+            status: params?.status,
+            availability: params?.availability,
+            pageSize: params?.limit,
+          })
+        : listShopProducts(shopId, params),
     enabled: Boolean(shopId),
   });
 }
