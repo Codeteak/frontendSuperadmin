@@ -102,20 +102,29 @@ export function ShopProductsBulkDialog({
 
       setProgress("Parsing rows…");
       const text = await file.text();
-      const rows =
-        mode === "update" ? mapBulkUpdateCsv(text) : mapBulkCreateCsv(text);
-      if (!rows.length) throw new Error("No valid rows found.");
-      if (rows.length > BULK_MAX_ROWS) {
-        throw new Error(
-          `Too many rows (max ${BULK_MAX_ROWS}). Split the file and import in parts.`,
-        );
-      }
 
-      setProgress(`Uploading ${rows.length} row(s)…`);
-      const response =
-        mode === "create"
-          ? await bulkCreateShopProducts(shopId, rows)
-          : await bulkUpdateShopProducts(shopId, rows);
+      let response: BulkShopProductResult;
+      if (mode === "create") {
+        const rows = mapBulkCreateCsv(text);
+        if (!rows.length) throw new Error("No valid rows found.");
+        if (rows.length > BULK_MAX_ROWS) {
+          throw new Error(
+            `Too many rows (max ${BULK_MAX_ROWS}). Split the file and import in parts.`,
+          );
+        }
+        setProgress(`Uploading ${rows.length} row(s)…`);
+        response = await bulkCreateShopProducts(shopId, rows);
+      } else {
+        const rows = mapBulkUpdateCsv(text);
+        if (!rows.length) throw new Error("No valid rows found.");
+        if (rows.length > BULK_MAX_ROWS) {
+          throw new Error(
+            `Too many rows (max ${BULK_MAX_ROWS}). Split the file and import in parts.`,
+          );
+        }
+        setProgress(`Uploading ${rows.length} row(s)…`);
+        response = await bulkUpdateShopProducts(shopId, rows);
+      }
       setResult(response);
       const { succeeded, failed, total } = response.summary;
       if (failed === 0) {
