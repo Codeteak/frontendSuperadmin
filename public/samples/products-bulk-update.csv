@@ -1,0 +1,2 @@
+product_id,product_name,price,pos_product_id,product_name_alt,description,category_name,vat_rate,is_vat_inclusive,delivery_taxable,availability,diet_type,status,sort_order,catalog_role,show_on_menu,seo_slug,seo_title,seo_description,og_image_alt
+101,Chicken Biryani Deluxe,27.50,POS-CHKN-BIR-DX,,,Mains,5.00,true,false,in_stock,non_veg,active,10,main,true,chicken-biryani-deluxe,,,

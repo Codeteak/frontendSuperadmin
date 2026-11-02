@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FileUpIcon, UploadIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { DownloadIcon, UploadIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
 import { parseApiFormError } from "@/lib/api-form-error";
 import { appToast } from "@/lib/app-toast";
@@ -23,92 +21,107 @@ import {
 import {
   mapBulkCreateCsv,
   mapBulkUpdateCsv,
-  SHOP_PRODUCT_BULK_CREATE_TEMPLATE,
-  SHOP_PRODUCT_BULK_UPDATE_TEMPLATE,
 } from "@/lib/shop-product-csv";
 import { cn } from "@/lib/utils";
 import type { BulkShopProductResult } from "@/types/api";
 
-type BulkMode = "create" | "update";
+export type ShopProductsBulkMode = "create" | "update";
+
+const SAMPLE_HREF: Record<ShopProductsBulkMode, string> = {
+  create: "/samples/products-bulk-create.csv",
+  update: "/samples/products-bulk-update.csv",
+};
+
+const BULK_MAX_ROWS = 500;
+const BULK_MAX_BYTES = 2 * 1024 * 1024;
 
 type ShopProductsBulkDialogProps = {
   shopId: string;
+  mode: ShopProductsBulkMode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onChanged: () => void | Promise<void>;
 };
 
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function ShopProductsBulkDialog({
   shopId,
+  mode,
   open,
   onOpenChange,
   onChanged,
 }: ShopProductsBulkDialogProps) {
-  const [mode, setMode] = useState<BulkMode>("create");
-  const [csvText, setCsvText] = useState(SHOP_PRODUCT_BULK_CREATE_TEMPLATE);
-  const [fileName, setFileName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [progress, setProgress] = useState("");
   const [result, setResult] = useState<BulkShopProductResult | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const template = useMemo(
-    () =>
-      mode === "create"
-        ? SHOP_PRODUCT_BULK_CREATE_TEMPLATE
-        : SHOP_PRODUCT_BULK_UPDATE_TEMPLATE,
-    [mode],
-  );
+  const title =
+    mode === "update" ? "Bulk update products" : "Bulk create products";
+
+  const help = useMemo(() => {
+    if (mode === "update") {
+      return "Required: product_id plus at least one field to change. Use category_name or category_id (existing only — not both). Blank keeps category; CLEAR uncategorises.";
+    }
+    return "Required: product_name, price. Use category_name or category_id (existing only — not both). Missing category still creates the product. Duplicate names are rejected; soft-deleted same name is restored.";
+  }, [mode]);
 
   useEffect(() => {
     if (!open) return;
-    setMode("create");
-    setCsvText(SHOP_PRODUCT_BULK_CREATE_TEMPLATE);
-    setFileName(null);
     setBusy(false);
-    setMessage(null);
-    setResult(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [open]);
-
-  function onModeChange(next: BulkMode) {
-    setMode(next);
-    setCsvText(
-      next === "create"
-        ? SHOP_PRODUCT_BULK_CREATE_TEMPLATE
-        : SHOP_PRODUCT_BULK_UPDATE_TEMPLATE,
-    );
-    setFileName(null);
+    setProgress("");
     setResult(null);
     setMessage(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
+  }, [open, mode]);
 
-  async function onPickFile(file: File | null) {
+  async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
-    const text = await file.text();
-    setCsvText(text);
-    setFileName(file.name);
-    setResult(null);
-    setMessage(null);
-  }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
     setBusy(true);
-    setMessage(null);
     setResult(null);
+    setMessage(null);
+    setProgress("Validating file…");
     try {
+      if (file.size <= 0) throw new Error("File is empty");
+      if (file.size > BULK_MAX_BYTES) {
+        throw new Error(
+          `File is too large (max ${formatBytes(BULK_MAX_BYTES)}).`,
+        );
+      }
+      const lower = file.name.toLowerCase();
+      if (!lower.endsWith(".csv") && !lower.endsWith(".txt")) {
+        throw new Error("Upload a CSV file (.csv).");
+      }
+
+      setProgress("Parsing rows…");
+      const text = await file.text();
+      const rows =
+        mode === "update" ? mapBulkUpdateCsv(text) : mapBulkCreateCsv(text);
+      if (!rows.length) throw new Error("No valid rows found.");
+      if (rows.length > BULK_MAX_ROWS) {
+        throw new Error(
+          `Too many rows (max ${BULK_MAX_ROWS}). Split the file and import in parts.`,
+        );
+      }
+
+      setProgress(`Uploading ${rows.length} row(s)…`);
       const response =
         mode === "create"
-          ? await bulkCreateShopProducts(shopId, mapBulkCreateCsv(csvText))
-          : await bulkUpdateShopProducts(shopId, mapBulkUpdateCsv(csvText));
+          ? await bulkCreateShopProducts(shopId, rows)
+          : await bulkUpdateShopProducts(shopId, rows);
       setResult(response);
       const { succeeded, failed, total } = response.summary;
       if (failed === 0) {
-        appToast.success(`Bulk ${mode}: ${succeeded}/${total} succeeded.`);
+        appToast.success(`${title}: ${succeeded}/${total} succeeded.`);
       } else {
-        appToast.error(`Bulk ${mode}: ${succeeded} ok, ${failed} failed.`);
+        appToast.error(`${title}: ${succeeded} ok, ${failed} failed.`);
       }
       if (succeeded > 0) await onChanged();
     } catch (err) {
@@ -122,6 +135,7 @@ export function ShopProductsBulkDialog({
       appToast.error(msg);
     } finally {
       setBusy(false);
+      setProgress("");
     }
   }
 
@@ -129,178 +143,141 @@ export function ShopProductsBulkDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="gap-0 overflow-hidden border bg-card p-0 shadow-xl sm:max-w-3xl"
+        className={cn(
+          "flex w-[min(100%,36rem)] max-w-xl flex-col gap-0 overflow-hidden border bg-card p-0 shadow-xl",
+          "sm:max-w-xl",
+        )}
       >
-        <form
-          className="flex max-h-[90vh] flex-col"
-          onSubmit={(e) => void onSubmit(e)}
-        >
-          <div className="space-y-5 overflow-y-auto p-6 pb-5">
-            <DialogHeader className="gap-2 text-left">
-              <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <UploadIcon className="size-5" />
+        <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
+          <DialogHeader className="min-w-0 flex-1 gap-1.5 space-y-0 text-left">
+            <DialogTitle className="text-lg font-semibold leading-tight">
+              {title}
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+              {help} Max file {formatBytes(BULK_MAX_BYTES)}, max {BULK_MAX_ROWS}{" "}
+              rows per upload.
+            </DialogDescription>
+          </DialogHeader>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0"
+            disabled={busy}
+            aria-label="Close"
+            onClick={() => onOpenChange(false)}
+          >
+            <XIcon className="size-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-4 overflow-y-auto px-5 py-4">
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={SAMPLE_HREF[mode]}
+              download
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm hover:bg-muted"
+            >
+              <DownloadIcon className="size-3.5" />
+              CSV sample
+            </a>
+          </div>
+
+          <label
+            className={cn(
+              "flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground transition-colors hover:bg-muted/40",
+              busy && "pointer-events-none opacity-60",
+            )}
+          >
+            <UploadIcon className="size-5 text-foreground" />
+            <span className="font-medium text-foreground">
+              {busy ? progress || "Working…" : "Upload CSV"}
+            </span>
+            <span className="text-xs">
+              Drop or click to choose a .csv file
+            </span>
+            <input
+              type="file"
+              accept=".csv,.txt,text/csv"
+              className="sr-only"
+              disabled={busy}
+              onChange={(e) => void onFile(e)}
+            />
+          </label>
+
+          {message ? (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {message}
+            </p>
+          ) : null}
+
+          {result ? (
+            <div className="space-y-3">
+              <div className="rounded-lg border bg-muted/40 px-3 py-2.5 text-sm">
+                Succeeded:{" "}
+                <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                  {result.summary.succeeded}
+                </span>
+                . Failed:{" "}
+                <span className="font-medium text-destructive">
+                  {result.summary.failed}
+                </span>
+                . Total: {result.summary.total}.
               </div>
-              <DialogTitle className="text-lg font-semibold">
-                Bulk products CSV
-              </DialogTitle>
-              <DialogDescription className="text-sm leading-relaxed">
-                Import up to 500 rows. Create restores a soft-deleted product
-                with the same name when present. Update requires{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                  product_id
-                </code>
-                .
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-2">
-              <Label className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Mode
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={mode === "create" ? "default" : "outline"}
-                  className="justify-center"
-                  onClick={() => onModeChange("create")}
-                >
-                  Bulk create
-                </Button>
-                <Button
-                  type="button"
-                  variant={mode === "update" ? "default" : "outline"}
-                  className="justify-center"
-                  onClick={() => onModeChange("update")}
-                >
-                  Bulk update
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label
-                  htmlFor="bulk_csv"
-                  className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
-                >
-                  CSV content
-                </Label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setCsvText(template);
-                      setFileName(null);
-                      if (fileInputRef.current) fileInputRef.current.value = "";
-                    }}
-                  >
-                    Reset template
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(template);
-                      appToast.success("Template copied.");
-                    }}
-                  >
-                    Copy template
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <FileUpIcon className="size-3.5" />
-                    Upload file
-                  </Button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv,text/csv,text/plain"
-                    className="sr-only"
-                    onChange={(e) => {
-                      void onPickFile(e.target.files?.[0] ?? null);
-                    }}
-                  />
-                </div>
-              </div>
-              {fileName ? (
-                <p className="truncate text-xs text-muted-foreground">
-                  Loaded from <span className="font-medium">{fileName}</span>
-                </p>
-              ) : null}
-              <Textarea
-                id="bulk_csv"
-                value={csvText}
-                onChange={(e) => {
-                  setCsvText(e.target.value);
-                  setFileName(null);
-                }}
-                spellCheck={false}
-                className={cn(
-                  "min-h-56 w-full resize-y overflow-x-auto whitespace-pre font-mono text-xs leading-5",
-                )}
-              />
-              <p className="text-xs text-muted-foreground">
-                Header row required. Paste CSV or upload a{" "}
-                <code className="text-[11px]">.csv</code> file.
-              </p>
-            </div>
-
-            {message ? (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {message}
-              </p>
-            ) : null}
-
-            {result ? (
-              <div className="rounded-xl border bg-muted/40 p-4 text-sm">
-                <p className="font-medium">
-                  Summary: {result.summary.succeeded} succeeded,{" "}
-                  {result.summary.failed} failed / {result.summary.total}
-                </p>
-                {result.results.some((r) => !r.ok || r.warning) ? (
-                  <ul className="mt-3 max-h-40 space-y-1.5 overflow-y-auto text-xs text-muted-foreground">
+              {result.results.some((r) => r.ok && r.warning) ? (
+                <div className="max-h-36 overflow-auto rounded-lg border border-amber-200/80 bg-amber-50/70 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+                  <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">
+                    Created with warnings
+                  </p>
+                  <ul className="space-y-1.5 text-xs text-amber-950 dark:text-amber-50">
                     {result.results
-                      .filter((r) => !r.ok || r.warning)
+                      .filter((r) => r.ok && r.warning)
                       .slice(0, 50)
                       .map((r) => (
-                        <li
-                          key={`${r.index}-${r.product_id}`}
-                          className="rounded-md border bg-background px-2 py-1.5"
-                        >
-                          #{r.index + 1}
-                          {r.product_id != null ? ` (id ${r.product_id})` : ""}:{" "}
-                          {r.ok
-                            ? r.warning || "ok"
-                            : `${r.error_code ?? "error"} — ${r.message ?? ""}`}
+                        <li key={`w-${r.index}-${r.product_id}`}>
+                          Row {r.index + 1}
+                          {r.product_id != null ? ` · id ${r.product_id}` : ""}
+                          {r.warning_code ? ` · [${r.warning_code}]` : ""}:{" "}
+                          {r.warning}
                         </li>
                       ))}
                   </ul>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+                </div>
+              ) : null}
+              {result.results.some((r) => !r.ok) ? (
+                <div className="max-h-48 overflow-auto rounded-lg border border-red-200/80 bg-red-50/70 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+                  <p className="mb-2 text-sm font-medium text-red-800 dark:text-red-100">
+                    Failures with reason
+                  </p>
+                  <ul className="space-y-1.5 text-xs text-red-900 dark:text-red-50">
+                    {result.results
+                      .filter((r) => !r.ok)
+                      .slice(0, 50)
+                      .map((r) => (
+                        <li key={`f-${r.index}-${r.product_id}`}>
+                          Row {r.index + 1}
+                          {r.product_id != null ? ` · id ${r.product_id}` : ""}
+                          {r.error_code ? ` · [${r.error_code}]` : ""}:{" "}
+                          {r.message ?? "Row failed"}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
-          <div className="flex shrink-0 flex-col-reverse gap-2 border-t bg-muted/50 p-4 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() => onOpenChange(false)}
-            >
-              Close
-            </Button>
-            <Button type="submit" disabled={busy || !csvText.trim()}>
-              {busy ? "Running…" : `Run bulk ${mode}`}
-            </Button>
-          </div>
-        </form>
+        <div className="flex shrink-0 justify-end border-t bg-muted/40 px-5 py-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

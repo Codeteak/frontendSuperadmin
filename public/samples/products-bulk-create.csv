@@ -1,0 +1,2 @@
+product_name,price,pos_product_id,product_name_alt,description,category_name,vat_rate,is_vat_inclusive,delivery_taxable,availability,diet_type,status,sort_order,catalog_role,show_on_menu,seo_slug,seo_title,seo_description,og_image_alt
+Chicken Biryani,25.00,POS-CHKN-BIR,Chicken Biryani,Spicy rice with chicken,Mains,5.00,true,false,in_stock,non_veg,active,10,main,true,chicken-biryani,Chicken Biryani,Order chicken biryani online,Chicken biryani bowl

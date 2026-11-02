@@ -56,7 +56,13 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [editProductId, setEditProductId] = useState<number | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkMode, setBulkMode] = useState<"create" | "update">("create");
   const [busyDelete, setBusyDelete] = useState(false);
+
+  function openBulk(mode: "create" | "update") {
+    setBulkMode(mode);
+    setBulkOpen(true);
+  }
 
   const productsQuery = useQuery(shopProductsQuery(shopId));
   const items = productsQuery.data?.items ?? [];
@@ -395,10 +401,19 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setBulkOpen(true)}
+            onClick={() => openBulk("create")}
           >
             <UploadIcon className="size-3.5" />
-            Bulk CSV
+            Bulk create
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => openBulk("update")}
+          >
+            <UploadIcon className="size-3.5" />
+            Bulk update
           </Button>
           <Button
             type="button"
@@ -448,10 +463,19 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => setBulkOpen(true)}
+                onClick={() => openBulk("create")}
               >
                 <UploadIcon className="size-3.5" />
-                Bulk CSV
+                Bulk create
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => openBulk("update")}
+              >
+                <UploadIcon className="size-3.5" />
+                Bulk update
               </Button>
             </div>
           }
@@ -479,6 +503,7 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
       />
       <ShopProductsBulkDialog
         shopId={shopId}
+        mode={bulkMode}
         open={bulkOpen}
         onOpenChange={setBulkOpen}
         onChanged={refresh}
