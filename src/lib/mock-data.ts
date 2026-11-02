@@ -37,6 +37,9 @@ import type {
   ShopEcomSettings,
   ShopListItem,
   ShopProduct,
+  ShopProductCreateInput,
+  ShopProductUpdateInput,
+  BulkShopProductResult,
   TriggerShopLogoutResponse,
 } from "@/types/api";
 import { siteConfig } from "@/config/site";
@@ -179,9 +182,12 @@ const mockProducts: ShopProduct[] = [
     img_url: null,
     category_id: 10,
     status: "active",
-    availability: "available",
+    availability: "in_stock",
+    is_available: true,
     diet_type: "non_veg",
     sort_order: 1,
+    catalog_role: "main",
+    show_on_menu: true,
     seo_slug: "chicken-biryani",
     pos_product_id: "POS-100",
     created_at: "2026-03-01T10:00:00Z",
@@ -198,9 +204,12 @@ const mockProducts: ShopProduct[] = [
     img_url: null,
     category_id: 11,
     status: "active",
-    availability: "available",
+    availability: "in_stock",
+    is_available: true,
     diet_type: "non_veg",
     sort_order: 2,
+    catalog_role: "main",
+    show_on_menu: true,
     seo_slug: "shawarma-wrap",
     pos_product_id: "POS-101",
     created_at: "2026-03-01T10:00:00Z",
@@ -218,8 +227,11 @@ const mockProducts: ShopProduct[] = [
     category_id: 12,
     status: "inactive",
     availability: "out_of_stock",
+    is_available: false,
     diet_type: "veg",
     sort_order: 3,
+    catalog_role: "main",
+    show_on_menu: true,
     seo_slug: "fresh-lemonade",
     pos_product_id: "POS-102",
     created_at: "2026-03-01T10:00:00Z",
@@ -1175,6 +1187,298 @@ export async function mockListShopProducts(
     items = items.filter((p) => p.availability === params.availability);
   }
   return delay({ items, total: items.length, page: 1, limit: 50 });
+}
+
+function nextMockProductId() {
+  const maxId = mockProducts.reduce((max, row) => {
+    const id = Number(row.id);
+    return Number.isFinite(id) ? Math.max(max, id) : max;
+  }, 0);
+  return maxId + 1;
+}
+
+function normalizeMockAvailability(
+  input: ShopProductCreateInput | ShopProductUpdateInput,
+): string | undefined {
+  if (input.availability) return input.availability;
+  if (input.is_available === true) return "in_stock";
+  if (input.is_available === false) return "out_of_stock";
+  return undefined;
+}
+
+export async function mockGetShopProduct(
+  _shopId: string,
+  productId: number | string,
+): Promise<ShopProduct> {
+  const id = Number(productId);
+  const found = mockProducts.find((p) => Number(p.id) === id);
+  if (!found) {
+    throw Object.assign(new Error("Product not found"), {
+      status: 404,
+      code: "product_not_found",
+    });
+  }
+  return delay({ ...found });
+}
+
+export async function mockCreateShopProduct(
+  shopId: string,
+  input: ShopProductCreateInput,
+): Promise<ShopProduct> {
+  const name = input.product_name.trim();
+  const existing = mockProducts.find(
+    (p) =>
+      String(p.product_name ?? p.name ?? "")
+        .trim()
+        .toLowerCase() === name.toLowerCase(),
+  );
+  const now = new Date().toISOString();
+  const availability = normalizeMockAvailability(input) ?? "in_stock";
+  if (existing) {
+    Object.assign(existing, {
+      product_name: name,
+      product_name_alt: input.product_name_alt ?? existing.product_name_alt,
+      description: input.description ?? existing.description,
+      price: input.price,
+      category_id: input.category_id ?? existing.category_id,
+      availability,
+      is_available: availability === "in_stock",
+      diet_type: input.diet_type ?? existing.diet_type,
+      status: input.status ?? existing.status ?? "active",
+      sort_order: input.sort_order ?? existing.sort_order,
+      catalog_role: input.catalog_role ?? existing.catalog_role ?? "main",
+      show_on_menu: input.show_on_menu ?? existing.show_on_menu ?? true,
+      day_session_ids: input.day_session_ids ?? existing.day_session_ids ?? [],
+      shop_id: shopId,
+      updated_at: now,
+      restored: true,
+      warning_code: "product_restored",
+      warning: `Soft-deleted product was restored (id ${existing.id})`,
+    });
+    return delay({ ...existing });
+  }
+  const created: ShopProduct = {
+    id: nextMockProductId(),
+    shop_id: shopId,
+    product_name: name,
+    product_name_alt: input.product_name_alt ?? null,
+    description: input.description ?? null,
+    price: input.price,
+    category_id: input.category_id ?? null,
+    availability,
+    is_available: availability === "in_stock",
+    diet_type: input.diet_type ?? null,
+    status: input.status ?? "active",
+    sort_order: input.sort_order ?? 0,
+    catalog_role: input.catalog_role ?? "main",
+    show_on_menu: input.show_on_menu ?? true,
+    day_session_ids: input.day_session_ids ?? [],
+    created_at: now,
+    updated_at: now,
+    restored: false,
+  };
+  mockProducts.unshift(created);
+  return delay({ ...created });
+}
+
+export async function mockUpdateShopProduct(
+  shopId: string,
+  productId: number | string,
+  input: ShopProductUpdateInput,
+): Promise<ShopProduct> {
+  const id = Number(productId);
+  const existing = mockProducts.find((p) => Number(p.id) === id);
+  if (!existing) {
+    throw Object.assign(new Error("Product not found"), {
+      status: 404,
+      code: "product_not_found",
+    });
+  }
+  const availability = normalizeMockAvailability(input);
+  Object.assign(existing, {
+    ...(input.product_name !== undefined
+      ? { product_name: input.product_name }
+      : {}),
+    ...(input.product_name_alt !== undefined
+      ? { product_name_alt: input.product_name_alt }
+      : {}),
+    ...(input.description !== undefined ? { description: input.description } : {}),
+    ...(input.price !== undefined ? { price: input.price } : {}),
+    ...(input.category_id !== undefined ? { category_id: input.category_id } : {}),
+    ...(availability
+      ? { availability, is_available: availability === "in_stock" }
+      : {}),
+    ...(input.diet_type !== undefined ? { diet_type: input.diet_type } : {}),
+    ...(input.status !== undefined ? { status: input.status } : {}),
+    ...(input.sort_order !== undefined ? { sort_order: input.sort_order } : {}),
+    ...(input.catalog_role !== undefined
+      ? { catalog_role: input.catalog_role }
+      : {}),
+    ...(input.show_on_menu !== undefined
+      ? { show_on_menu: input.show_on_menu }
+      : {}),
+    ...(input.day_session_ids !== undefined
+      ? { day_session_ids: input.day_session_ids }
+      : {}),
+    ...(input.clear_image ? { img_url: null } : {}),
+    shop_id: shopId,
+    updated_at: new Date().toISOString(),
+  });
+  return delay({ ...existing });
+}
+
+export async function mockDeleteShopProduct(
+  _shopId: string,
+  productId: number | string,
+): Promise<ShopProduct> {
+  const id = Number(productId);
+  const index = mockProducts.findIndex((p) => Number(p.id) === id);
+  if (index < 0) {
+    throw Object.assign(new Error("Product not found"), {
+      status: 404,
+      code: "product_not_found",
+    });
+  }
+  // Mock: treat id 2 as option-referenced for UI testing.
+  if (id === 2) {
+    throw Object.assign(
+      new Error(
+        "Product is referenced by an active option group and cannot be deleted",
+      ),
+      { status: 422, code: "product_referenced_by_option_group" },
+    );
+  }
+  const [removed] = mockProducts.splice(index, 1);
+  return delay({ ...removed! });
+}
+
+export async function mockBulkCreateShopProducts(
+  shopId: string,
+  rows: ShopProductCreateInput[],
+): Promise<BulkShopProductResult> {
+  const results = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    try {
+      const created = await mockCreateShopProduct(shopId, rows[i]!);
+      results.push({
+        index: i,
+        ok: true,
+        product_id: Number(created.id),
+        error_code: null,
+        message: null,
+        warning_code: created.warning_code ?? null,
+        warning: created.warning ?? null,
+      });
+    } catch (error) {
+      results.push({
+        index: i,
+        ok: false,
+        product_id: null,
+        error_code:
+          error && typeof error === "object" && "code" in error
+            ? String((error as { code: unknown }).code)
+            : "product_create_failed",
+        message: error instanceof Error ? error.message : "Unable to create product",
+        warning_code: null,
+        warning: null,
+      });
+    }
+  }
+  return delay({
+    results,
+    summary: {
+      total: results.length,
+      succeeded: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+    },
+  });
+}
+
+export async function mockBulkUpdateShopProducts(
+  shopId: string,
+  rows: Array<ShopProductUpdateInput & { product_id: number }>,
+): Promise<BulkShopProductResult> {
+  const results = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i]!;
+    try {
+      const updated = await mockUpdateShopProduct(shopId, row.product_id, row);
+      results.push({
+        index: i,
+        ok: true,
+        product_id: Number(updated.id),
+        error_code: null,
+        message: null,
+        warning_code: null,
+        warning: null,
+      });
+    } catch (error) {
+      results.push({
+        index: i,
+        ok: false,
+        product_id: row.product_id,
+        error_code:
+          error && typeof error === "object" && "code" in error
+            ? String((error as { code: unknown }).code)
+            : "product_update_failed",
+        message: error instanceof Error ? error.message : "Unable to update product",
+        warning_code: null,
+        warning: null,
+      });
+    }
+  }
+  return delay({
+    results,
+    summary: {
+      total: results.length,
+      succeeded: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+    },
+  });
+}
+
+export async function mockBulkDeleteShopProducts(
+  shopId: string,
+  productIds: number[],
+): Promise<BulkShopProductResult> {
+  const unique = [...new Set(productIds)];
+  const results = [];
+  for (let i = 0; i < unique.length; i += 1) {
+    const productId = unique[i]!;
+    try {
+      await mockDeleteShopProduct(shopId, productId);
+      results.push({
+        index: i,
+        ok: true,
+        product_id: productId,
+        error_code: null,
+        message: null,
+        warning_code: null,
+        warning: null,
+      });
+    } catch (error) {
+      results.push({
+        index: i,
+        ok: false,
+        product_id: productId,
+        error_code:
+          error && typeof error === "object" && "code" in error
+            ? String((error as { code: unknown }).code)
+            : "product_delete_failed",
+        message: error instanceof Error ? error.message : "Unable to delete product",
+        warning_code: null,
+        warning: null,
+      });
+    }
+  }
+  return delay({
+    results,
+    summary: {
+      total: results.length,
+      succeeded: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+    },
+  });
 }
 
 export async function mockGetDeliverySettings(): Promise<Record<string, unknown>> {

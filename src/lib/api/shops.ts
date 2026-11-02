@@ -10,6 +10,12 @@ import {
   mockGetShop,
   mockGetNextShopUserId,
   mockGetShopActivity,
+  mockBulkCreateShopProducts,
+  mockBulkDeleteShopProducts,
+  mockBulkUpdateShopProducts,
+  mockCreateShopProduct,
+  mockDeleteShopProduct,
+  mockGetShopProduct,
   mockListShopProducts,
   mockListShops,
   mockPatchShop,
@@ -17,12 +23,14 @@ import {
   mockRestoreShop,
   mockRotateShopIntegrationToken,
   mockTriggerShopLogout,
+  mockUpdateShopProduct,
 } from "@/lib/mock-data";
 import {
   SHOP_USER_ID_MAX,
   SHOP_USER_ID_MIN,
 } from "@/lib/shop-create-validation";
 import type {
+  BulkShopProductResult,
   CreateShopInput,
   Paginated,
   PatchShopInput,
@@ -34,6 +42,8 @@ import type {
   ShopEcomSettings,
   ShopListItem,
   ShopProduct,
+  ShopProductCreateInput,
+  ShopProductUpdateInput,
   ShopStatus,
   TriggerShopLogoutResponse,
 } from "@/types/api";
@@ -464,6 +474,77 @@ export function listShopProducts(
       total_pages: data.total_pages,
     } satisfies Paginated<ShopProduct>;
   });
+}
+
+export function getShopProduct(shopId: string, productId: number | string) {
+  if (isDevelopmentMode()) return mockGetShopProduct(shopId, productId);
+  return apiFetch<ShopProduct>(`/v2/shops/${shopId}/products/${productId}`);
+}
+
+export function createShopProduct(shopId: string, input: ShopProductCreateInput) {
+  if (isDevelopmentMode()) return mockCreateShopProduct(shopId, input);
+  return apiFetch<ShopProduct>(`/v2/shops/${shopId}/products`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateShopProduct(
+  shopId: string,
+  productId: number | string,
+  input: ShopProductUpdateInput,
+) {
+  if (isDevelopmentMode()) return mockUpdateShopProduct(shopId, productId, input);
+  return apiFetch<ShopProduct>(`/v2/shops/${shopId}/products/${productId}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteShopProduct(shopId: string, productId: number | string) {
+  if (isDevelopmentMode()) return mockDeleteShopProduct(shopId, productId);
+  return apiFetch<ShopProduct>(`/v2/shops/${shopId}/products/${productId}`, {
+    method: "DELETE",
+  });
+}
+
+export function bulkCreateShopProducts(
+  shopId: string,
+  rows: ShopProductCreateInput[],
+) {
+  if (isDevelopmentMode()) return mockBulkCreateShopProducts(shopId, rows);
+  return apiFetch<BulkShopProductResult>(
+    `/v2/shops/${shopId}/products/bulk-create`,
+    {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    },
+  );
+}
+
+export function bulkUpdateShopProducts(
+  shopId: string,
+  rows: Array<ShopProductUpdateInput & { product_id: number }>,
+) {
+  if (isDevelopmentMode()) return mockBulkUpdateShopProducts(shopId, rows);
+  return apiFetch<BulkShopProductResult>(
+    `/v2/shops/${shopId}/products/bulk-update`,
+    {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    },
+  );
+}
+
+export function bulkDeleteShopProducts(shopId: string, productIds: number[]) {
+  if (isDevelopmentMode()) return mockBulkDeleteShopProducts(shopId, productIds);
+  return apiFetch<BulkShopProductResult>(
+    `/v2/shops/${shopId}/products/bulk-delete`,
+    {
+      method: "POST",
+      body: JSON.stringify({ product_ids: productIds }),
+    },
+  );
 }
 
 export function getDeliverySettings(shopId: string) {

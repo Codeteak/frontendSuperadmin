@@ -20,6 +20,7 @@ import { ShopProfileHero } from "@/components/shops/shop-profile-hero";
 import { ShopEcomTab } from "@/components/shops/shop-ecom-tab";
 import { ShopPosTab } from "@/components/shops/shop-pos-tab";
 import { ShopWhatsAppTab } from "@/components/shops/shop-whatsapp-tab";
+import { ShopProductsTab } from "@/components/shops/shop-products-tab";
 import {
   ShopConfirmDialog,
   type ShopConfirmPhase,
@@ -89,7 +90,6 @@ import {
 import {
   shopDetailQuery,
   shopPromotionQuery,
-  shopProductsQuery,
   shopRidersQuery,
   shopSubscriptionQuery,
   shopVenuePickersQuery,
@@ -97,7 +97,7 @@ import {
 import { digitsOnly, isValidPhone } from "@/lib/shop-create-validation";
 import { validateShopDeliverySettings } from "@/lib/delivery-settings";
 import { toE164Phone } from "@yaadro/phone-kit";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   cascadeVenueMasterFlagsSnake,
   hasQrCapableServiceSnake,
@@ -114,7 +114,6 @@ import type {
   ShopDeliverySettings,
   ShopDetail,
   ShopFeatures,
-  ShopProduct,
   ShopPromotionSettings,
   VenuePickerListItem,
   VenuePickerScope,
@@ -548,7 +547,7 @@ export default function ShopDetailPage() {
         {tab === "ecom" ? (
           <ShopEcomTab shop={shop} onSaved={loadShop} />
         ) : null}
-        {tab === "products" ? <ProductsTab shopId={shopId} /> : null}
+        {tab === "products" ? <ShopProductsTab shopId={shopId} /> : null}
         {tab === "delivery" ? (
           <DeliveryTab shopId={shopId} shop={shop} onSaved={loadShop} />
         ) : null}
@@ -1699,214 +1698,6 @@ function FeaturesTab({
           {saving ? "Saving…" : "Save feature flags"}
         </Button>
       </form>
-    </ShopSection>
-  );
-}
-
-const productColumns: ColumnDef<ShopProduct>[] = [
-  {
-    accessorKey: "id",
-    header: "ID",
-    cell: ({ row }) => (
-      <span className="font-mono text-xs">{row.original.id ?? "—"}</span>
-    ),
-    meta: { label: "ID" },
-    size: 80,
-  },
-  {
-    id: "product_name",
-    accessorFn: (row) => row.product_name ?? row.name ?? "",
-    header: "Product",
-    cell: ({ row }) => {
-      const name = row.original.product_name ?? row.original.name ?? "—";
-      const alt = row.original.product_name_alt;
-      return (
-        <div className="min-w-0">
-          <p className="truncate font-medium">{name}</p>
-          {alt ? (
-            <p className="truncate text-xs text-muted-foreground">{alt}</p>
-          ) : null}
-        </div>
-      );
-    },
-    meta: { label: "Product" },
-    size: 220,
-  },
-  {
-    accessorKey: "price",
-    header: "Price",
-    cell: ({ row }) => {
-      const price = row.original.price;
-      if (price == null || price === "") return "—";
-      const amount = Number(price);
-      return (
-        <span className="tabular-nums">
-          {Number.isFinite(amount)
-            ? formatCurrency(amount)
-            : String(price)}
-        </span>
-      );
-    },
-    meta: { label: "Price" },
-    size: 110,
-  },
-  {
-    accessorKey: "vat_rate",
-    header: "VAT %",
-    cell: ({ row }) => {
-      const rate = row.original.vat_rate;
-      if (rate == null || rate === "") return "—";
-      return <span className="tabular-nums">{String(rate)}%</span>;
-    },
-    meta: { label: "VAT %" },
-    size: 80,
-  },
-  {
-    id: "vat_inclusive",
-    accessorFn: (row) => (row.is_vat_inclusive ? "yes" : "no"),
-    header: "VAT incl.",
-    cell: ({ row }) => (row.original.is_vat_inclusive ? "Yes" : "No"),
-    meta: { label: "VAT incl." },
-    size: 90,
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
-    meta: { label: "Status" },
-    size: 110,
-  },
-  {
-    accessorKey: "availability",
-    header: "Availability",
-    cell: ({ row }) => (
-      <span className="capitalize">
-        {String(row.original.availability ?? "—").replaceAll("_", " ")}
-      </span>
-    ),
-    meta: { label: "Availability" },
-    size: 130,
-  },
-  {
-    accessorKey: "category_id",
-    header: "Category",
-    cell: ({ row }) => row.original.category_id ?? "—",
-    meta: { label: "Category" },
-    size: 90,
-  },
-  {
-    accessorKey: "diet_type",
-    header: "Diet",
-    cell: ({ row }) =>
-      row.original.diet_type
-        ? String(row.original.diet_type).replaceAll("_", " ")
-        : "—",
-    meta: { label: "Diet" },
-    size: 100,
-  },
-  {
-    id: "pos_product_id",
-    accessorFn: (row) => row.pos_product_id ?? row.pos_id ?? "",
-    header: "POS ID",
-    cell: ({ row }) => (
-      <span className="font-mono text-xs">
-        {row.original.pos_product_id ?? row.original.pos_id ?? "—"}
-      </span>
-    ),
-    meta: { label: "POS ID" },
-    size: 110,
-  },
-  {
-    accessorKey: "seo_slug",
-    header: "Slug",
-    cell: ({ row }) => (
-      <span className="font-mono text-xs">{row.original.seo_slug ?? "—"}</span>
-    ),
-    meta: { label: "Slug" },
-    size: 160,
-  },
-  {
-    accessorKey: "sort_order",
-    header: "Sort",
-    cell: ({ row }) => row.original.sort_order ?? "—",
-    meta: { label: "Sort" },
-    size: 70,
-  },
-  {
-    accessorKey: "description",
-    header: "Description",
-    cell: ({ row }) => (
-      <span className="line-clamp-2 max-w-[14rem] text-muted-foreground">
-        {row.original.description || "—"}
-      </span>
-    ),
-    meta: { label: "Description" },
-    size: 180,
-  },
-  {
-    accessorKey: "created_at",
-    header: "Created",
-    cell: ({ row }) =>
-      row.original.created_at
-        ? new Date(row.original.created_at).toLocaleDateString("en-AE")
-        : "—",
-    meta: { label: "Created" },
-    size: 110,
-  },
-  {
-    accessorKey: "updated_at",
-    header: "Updated",
-    cell: ({ row }) =>
-      row.original.updated_at
-        ? new Date(row.original.updated_at).toLocaleDateString("en-AE")
-        : "—",
-    meta: { label: "Updated" },
-    size: 110,
-  },
-];
-
-function ProductsTab({ shopId }: { shopId: string }) {
-  const productsQuery = useQuery(
-    shopProductsQuery(shopId, { page: 1, limit: 100 }),
-  );
-  const items = productsQuery.data?.items ?? [];
-  const loading = productsQuery.isPending;
-  const error = productsQuery.error
-    ? productsQuery.error instanceof Error
-      ? productsQuery.error.message
-      : "Failed to load products"
-    : null;
-  const load = () => void productsQuery.refetch();
-
-  return (
-    <ShopSection
-      title="Products"
-      description={
-        loading
-          ? "Loading catalog…"
-          : `${items.length} product${items.length === 1 ? "" : "s"}`
-      }
-      className="max-w-none"
-    >
-      {loading ? <LoadingState /> : null}
-      {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
-      {!loading && !error && items.length === 0 ? (
-        <EmptyState
-          title="No products"
-          description="This shop has no products yet."
-        />
-      ) : null}
-      {!loading && !error && items.length > 0 ? (
-        <DataTable
-          columns={productColumns}
-          data={items}
-          searchPlaceholder="Search products…"
-          emptyMessage="No products match this search."
-          getRowId={(row, index) => String(row.id ?? index)}
-          initialPageSize={25}
-          pageSizeOptions={[10, 25, 50, 100]}
-        />
-      ) : null}
     </ShopSection>
   );
 }

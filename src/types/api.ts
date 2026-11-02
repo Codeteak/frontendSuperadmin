@@ -324,6 +324,7 @@ export type ShopDetail = ShopListItem & {
 
 export type ShopProduct = {
   id?: string | number;
+  shop_id?: string;
   product_name?: string | null;
   product_name_alt?: string | null;
   /** @deprecated Prefer product_name */
@@ -336,14 +337,78 @@ export type ShopProduct = {
   category_id?: string | number | null;
   status?: string | null;
   availability?: string | null;
+  is_available?: boolean;
   diet_type?: string | null;
   sort_order?: number | null;
+  catalog_role?: string | null;
+  show_on_menu?: boolean;
+  day_session_ids?: number[];
   seo_slug?: string | null;
   pos_product_id?: string | null;
   /** @deprecated Prefer pos_product_id */
   pos_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  /** Present on create when a soft-deleted same name was restored */
+  restored?: boolean;
+  warning_code?: string | null;
+  warning?: string | null;
+};
+
+/** POST /v2/shops/:shop_id/products body (admin-api Zod). */
+export type ShopProductCreateInput = {
+  product_name: string;
+  product_name_alt?: string | null;
+  description?: string | null;
+  price: string;
+  category_id?: number | null;
+  category_name?: string;
+  availability?: "in_stock" | "out_of_stock";
+  is_available?: boolean;
+  diet_type?: "veg" | "non_veg" | "egg" | null;
+  status?: "active" | "blocked";
+  sort_order?: number;
+  catalog_role?: "main" | "modifier" | "both";
+  show_on_menu?: boolean;
+  day_session_ids?: number[];
+  image_base64?: string;
+  image_content_type?: string;
+};
+
+/** PUT /v2/shops/:shop_id/products/:product_id — all fields optional. */
+export type ShopProductUpdateInput = {
+  product_name?: string;
+  product_name_alt?: string | null;
+  description?: string | null;
+  price?: string;
+  category_id?: number | null;
+  category_name?: string;
+  availability?: "in_stock" | "out_of_stock";
+  is_available?: boolean;
+  diet_type?: "veg" | "non_veg" | "egg" | null;
+  status?: "active" | "blocked";
+  sort_order?: number;
+  catalog_role?: "main" | "modifier" | "both";
+  show_on_menu?: boolean;
+  day_session_ids?: number[];
+  image_base64?: string;
+  image_content_type?: string;
+  clear_image?: boolean;
+};
+
+export type BulkShopProductRowResult = {
+  index: number;
+  ok: boolean;
+  product_id: number | null;
+  error_code: string | null;
+  message: string | null;
+  warning_code: string | null;
+  warning: string | null;
+};
+
+export type BulkShopProductResult = {
+  results: BulkShopProductRowResult[];
+  summary: { total: number; succeeded: number; failed: number };
 };
 
 export type ShopActivityEvent = {
