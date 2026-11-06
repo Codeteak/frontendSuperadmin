@@ -421,6 +421,9 @@ export type ShopCategory = {
   status?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  /** Set on create when a soft-deleted category with the same name was restored. */
+  restored?: boolean;
+  warning?: string | null;
 };
 
 export type BulkShopCategoryRowResult = {

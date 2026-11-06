@@ -665,7 +665,7 @@ export function createShopCategory(
   input: { category_name: string; category_name_alt?: string | null; parent_id?: number | null; sort_order?: number; status?: "active" | "blocked" },
 ) {
   if (isDevelopmentMode()) return mockCreateShopCategory(shopId, input);
-  return apiFetch<ShopCategory & { restored?: boolean; warning?: string | null }>(
+  return apiFetch<ShopCategory>(
     `/v2/shops/${shopId}/categories`,
     {
       method: "POST",

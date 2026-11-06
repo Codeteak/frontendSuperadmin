@@ -1230,7 +1230,7 @@ export async function mockCreateShopCategory(
     status: "active",
   };
   mockCategories.push(created);
-  return delay(created);
+  return delay({ ...created, restored: false });
 }
 
 export async function mockDeleteShopCategory(
