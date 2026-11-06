@@ -1517,6 +1517,28 @@ export async function mockBulkCreateShopProducts(
   });
 }
 
+export async function mockBulkUpsertShopProducts(
+  _shopId: string,
+  rows: Record<string, unknown>[],
+): Promise<BulkShopProductResult> {
+  const results = rows.map((_, index) => ({
+    index,
+    ok: true,
+    product_id: index + 1,
+    error_code: null,
+    message: null,
+    warning_code: null,
+    warning: null,
+  }));
+  return {
+    results,
+    summary: { total: rows.length, succeeded: rows.length, failed: 0 },
+    created: rows.length,
+    updated: 0,
+    restored: 0,
+  };
+}
+
 export async function mockBulkUpdateShopProducts(
   shopId: string,
   rows: Array<ShopProductUpdateInput & { product_id: number }>,

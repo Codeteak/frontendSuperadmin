@@ -24,6 +24,25 @@ export const SHOP_PRODUCT_BULK_CREATE_TEMPLATE = `${CREATE_HEADERS.join(",")}\nC
 
 export const SHOP_PRODUCT_BULK_UPDATE_TEMPLATE = `${UPDATE_HEADERS.join(",")}\n1,Chicken Biryani,36.00,,Updated biryani,12,,in_stock,non_veg,active,1,main,true\n`;
 
+const UPSERT_HEADERS = [
+  "product_id",
+  "product_name",
+  "price",
+  "pos_product_id",
+  "pos_category_id",
+  "category_name",
+  "product_name_alt",
+  "description",
+  "availability",
+  "diet_type",
+  "status",
+  "sort_order",
+  "catalog_role",
+  "show_on_menu",
+] as const;
+
+export const SHOP_PRODUCT_BULK_UPSERT_TEMPLATE = `${UPSERT_HEADERS.join(",")}\n,Chicken Biryani,35.00,POS-CHKN-BIR,POS-MAINS,Mains,,Classic biryani,in_stock,non_veg,active,1,main,true\n`;
+
 function splitCsvLine(line: string): string[] {
   const cells: string[] = [];
   let current = "";
@@ -233,5 +252,53 @@ export function mapBulkUpdateCsv(
       throw new Error(`Row ${index + 1}: at least one field to update is required.`);
     }
     return patch;
+  });
+}
+
+export function mapBulkUpsertCsv(text: string): Record<string, unknown>[] {
+  return parseCsvObjects(text).map((row, index) => {
+    const productName = optionalString(row.product_name ?? row.name);
+    if (!productName) {
+      throw new Error(`Row ${index + 1}: product_name is required.`);
+    }
+    const out: Record<string, unknown> = { product_name: productName };
+    const productId = optionalString(row.product_id);
+    if (productId) {
+      const n = Number(productId);
+      if (!Number.isInteger(n) || n <= 0) {
+        throw new Error(`Row ${index + 1}: product_id must be a positive integer.`);
+      }
+      out.product_id = n;
+    }
+    const price = optionalString(row.price);
+    if (price) {
+      if (!/^\d+(\.\d{1,2})?$/.test(price)) {
+        throw new Error(`Row ${index + 1}: invalid price "${price}".`);
+      }
+      out.price = price;
+    }
+    const copy = (key: string) => {
+      const value = optionalString(row[key]);
+      if (value) out[key] = value;
+    };
+    copy("pos_product_id");
+    copy("pos_category_id");
+    copy("category_name");
+    if (optionalString(row.category_id)) {
+      out.category_id =
+        row.category_id.trim().toUpperCase() === "CLEAR" ? null : optionalInt(row.category_id);
+    }
+    copy("product_name_alt");
+    copy("description");
+    const availability = mapAvailability(row.availability);
+    if (availability) out.availability = availability;
+    if (optionalString(row.diet_type)) out.diet_type = mapDiet(row.diet_type);
+    const status = mapStatus(row.status);
+    if (status) out.status = status;
+    if (optionalString(row.sort_order)) out.sort_order = optionalInt(row.sort_order);
+    const role = mapRole(row.catalog_role);
+    if (role) out.catalog_role = role;
+    if (optionalString(row.show_on_menu)) out.show_on_menu = optionalBool(row.show_on_menu);
+    return out;
   });
 }

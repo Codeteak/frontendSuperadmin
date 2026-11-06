@@ -14,6 +14,7 @@ import {
   mockBulkDeleteShopCategories,
   mockBulkDeleteShopProducts,
   mockBulkUpdateShopProducts,
+  mockBulkUpsertShopProducts,
   mockCreateShopCategory,
   mockCreateShopProduct,
   mockDeleteShopCategory,
@@ -582,6 +583,20 @@ export function bulkCreateShopProducts(
   );
 }
 
+export function bulkUpsertShopProducts(
+  shopId: string,
+  rows: Record<string, unknown>[],
+) {
+  if (isDevelopmentMode()) return mockBulkUpsertShopProducts(shopId, rows);
+  return apiFetch<BulkShopProductResult>(
+    `/v2/shops/${shopId}/products/bulk-upsert`,
+    {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    },
+  );
+}
+
 export function bulkUpdateShopProducts(
   shopId: string,
   rows: Array<ShopProductUpdateInput & { product_id: number }>,
@@ -709,24 +724,40 @@ export function bulkDeleteShopCategories(
   );
 }
 
-export function bulkDeleteShopProducts(
+const BULK_DELETE_BATCH = 500;
+
+export async function bulkDeleteShopProducts(
   shopId: string,
   productIds: number[],
   hard = false,
 ) {
-  if (isDevelopmentMode()) {
-    return mockBulkDeleteShopProducts(shopId, productIds, hard);
+  const ids = [...new Set(productIds)];
+  const merged: BulkShopProductResult = {
+    results: [],
+    summary: { total: 0, succeeded: 0, failed: 0 },
+  };
+  for (let offset = 0; offset < ids.length; offset += BULK_DELETE_BATCH) {
+    const slice = ids.slice(offset, offset + BULK_DELETE_BATCH);
+    const part = isDevelopmentMode()
+      ? await mockBulkDeleteShopProducts(shopId, slice, hard)
+      : await apiFetch<BulkShopProductResult>(
+          `/v2/shops/${shopId}/products/bulk-delete`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              product_ids: slice,
+              mode: hard ? "hard" : "soft",
+            }),
+          },
+        );
+    merged.summary.total += part.summary.total;
+    merged.summary.succeeded += part.summary.succeeded;
+    merged.summary.failed += part.summary.failed;
+    for (const row of part.results) {
+      merged.results.push({ ...row, index: row.index + offset });
+    }
   }
-  return apiFetch<BulkShopProductResult>(
-    `/v2/shops/${shopId}/products/bulk-delete`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        product_ids: productIds,
-        mode: hard ? "hard" : "soft",
-      }),
-    },
-  );
+  return merged;
 }
 
 export function getDeliverySettings(shopId: string) {

@@ -17,23 +17,27 @@ import { appToast } from "@/lib/app-toast";
 import {
   bulkCreateShopProducts,
   bulkUpdateShopProducts,
+  bulkUpsertShopProducts,
 } from "@/lib/api/shops";
 import {
   mapBulkCreateCsv,
   mapBulkUpdateCsv,
+  mapBulkUpsertCsv,
 } from "@/lib/shop-product-csv";
 import { cn } from "@/lib/utils";
 import type { BulkShopProductResult } from "@/types/api";
 
-export type ShopProductsBulkMode = "create" | "update";
+export type ShopProductsBulkMode = "create" | "update" | "upsert";
 
 const SAMPLE_HREF: Record<ShopProductsBulkMode, string> = {
   create: "/samples/products-bulk-create.csv",
   update: "/samples/products-bulk-update.csv",
+  upsert: "/samples/products-bulk-upsert.csv",
 };
 
 const BULK_MAX_ROWS = 500;
-const BULK_MAX_BYTES = 2 * 1024 * 1024;
+const BULK_UPSERT_MAX_ROWS = 100_000;
+const BULK_MAX_BYTES = 5 * 1024 * 1024;
 
 type ShopProductsBulkDialogProps = {
   shopId: string;
@@ -62,9 +66,18 @@ export function ShopProductsBulkDialog({
   const [message, setMessage] = useState<string | null>(null);
 
   const title =
-    mode === "update" ? "Bulk update products" : "Bulk create products";
+    mode === "update"
+      ? "Bulk update products"
+      : mode === "upsert"
+        ? "Import products"
+        : "Bulk create products";
+
+  const rowCap = mode === "upsert" ? BULK_UPSERT_MAX_ROWS : BULK_MAX_ROWS;
 
   const help = useMemo(() => {
+    if (mode === "upsert") {
+      return "One sheet creates or updates. product_name is required. Price is required only for a new product. Match order is product_id, then pos_product_id, then name. A missing category_name is created. If category_name and pos_category_id belong to different categories, that row is rejected. If only one of them exists, that category is updated with the other. category_id must already exist. Blank cells keep the current value. CLEAR removes the category. Files over 500 rows are sent in batches.";
+    }
     if (mode === "update") {
       return "Required: product_id plus at least one field to change. Use category_name or category_id (existing only — not both). Blank keeps category; CLEAR uncategorises.";
     }
@@ -104,7 +117,39 @@ export function ShopProductsBulkDialog({
       const text = await file.text();
 
       let response: BulkShopProductResult;
-      if (mode === "create") {
+      if (mode === "upsert") {
+        const rows = mapBulkUpsertCsv(text);
+        if (!rows.length) throw new Error("No valid rows found.");
+        if (rows.length > BULK_UPSERT_MAX_ROWS) {
+          throw new Error(
+            `Too many rows (max ${BULK_UPSERT_MAX_ROWS.toLocaleString()}). Split the file and import in parts.`,
+          );
+        }
+        const merged: BulkShopProductResult = {
+          results: [],
+          summary: { total: 0, succeeded: 0, failed: 0 },
+          created: 0,
+          updated: 0,
+          restored: 0,
+        };
+        for (let offset = 0; offset < rows.length; offset += BULK_MAX_ROWS) {
+          const slice = rows.slice(offset, offset + BULK_MAX_ROWS);
+          setProgress(
+            `Uploading ${offset + 1}–${offset + slice.length} of ${rows.length}…`,
+          );
+          const part = await bulkUpsertShopProducts(shopId, slice);
+          merged.created = (merged.created ?? 0) + (part.created ?? 0);
+          merged.updated = (merged.updated ?? 0) + (part.updated ?? 0);
+          merged.restored = (merged.restored ?? 0) + (part.restored ?? 0);
+          merged.summary.total += part.summary.total;
+          merged.summary.succeeded += part.summary.succeeded;
+          merged.summary.failed += part.summary.failed;
+          for (const row of part.results) {
+            merged.results.push({ ...row, index: row.index + offset });
+          }
+        }
+        response = merged;
+      } else if (mode === "create") {
         const rows = mapBulkCreateCsv(text);
         if (!rows.length) throw new Error("No valid rows found.");
         if (rows.length > BULK_MAX_ROWS) {
@@ -163,7 +208,7 @@ export function ShopProductsBulkDialog({
               {title}
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-              {help} Max file {formatBytes(BULK_MAX_BYTES)}, max {BULK_MAX_ROWS}{" "}
+              {help} Max file {formatBytes(BULK_MAX_BYTES)}, max {rowCap.toLocaleString()}{" "}
               rows per upload.
             </DialogDescription>
           </DialogHeader>

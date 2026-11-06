@@ -409,6 +409,9 @@ export type BulkShopProductRowResult = {
 export type BulkShopProductResult = {
   results: BulkShopProductRowResult[];
   summary: { total: number; succeeded: number; failed: number };
+  created?: number;
+  updated?: number;
+  restored?: number;
 };
 
 export type ShopCategory = {

@@ -56,10 +56,10 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [editProductId, setEditProductId] = useState<number | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkMode, setBulkMode] = useState<"create" | "update">("create");
+  const [bulkMode, setBulkMode] = useState<"create" | "update" | "upsert">("upsert");
   const [busyDelete, setBusyDelete] = useState(false);
 
-  function openBulk(mode: "create" | "update") {
+  function openBulk(mode: "create" | "update" | "upsert" = "upsert") {
     setBulkMode(mode);
     setBulkOpen(true);
   }
@@ -401,19 +401,10 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => openBulk("create")}
+            onClick={() => openBulk("upsert")}
           >
             <UploadIcon className="size-3.5" />
-            Bulk create
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => openBulk("update")}
-          >
-            <UploadIcon className="size-3.5" />
-            Bulk update
+            Import products
           </Button>
           <Button
             type="button"
@@ -463,19 +454,10 @@ export function ShopProductsTab({ shopId }: ShopProductsTabProps) {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => openBulk("create")}
+                onClick={() => openBulk("upsert")}
               >
                 <UploadIcon className="size-3.5" />
-                Bulk create
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => openBulk("update")}
-              >
-                <UploadIcon className="size-3.5" />
-                Bulk update
+                Import products
               </Button>
             </div>
           }

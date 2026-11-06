@@ -1,0 +1,3 @@
+product_id,product_name,price,pos_product_id,pos_category_id,category_name,product_name_alt,description,availability,diet_type,status,sort_order,catalog_role,show_on_menu
+,Chicken Biryani,35.00,POS-CHKN-BIR,POS-MAINS,Mains,,Classic biryani,in_stock,non_veg,active,1,main,true
+,Masala Chai,5.00,POS-CHAI,POS-DRINKS,Drinks,,Spiced tea,in_stock,veg,active,2,main,true
