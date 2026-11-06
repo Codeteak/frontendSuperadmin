@@ -7,6 +7,7 @@ import {
   getPromotion,
   getShop,
   listAllShops,
+  listAllShopCategories,
   listAllShopProducts,
   listShopProducts,
   listShops,
@@ -40,6 +41,8 @@ export const shopKeys = {
   detail: (shopId: string) => [...shopKeys.all, "detail", shopId] as const,
   products: (shopId: string, params: Record<string, unknown>) =>
     [...shopKeys.all, "products", shopId, params] as const,
+  categories: (shopId: string, params: Record<string, unknown>) =>
+    [...shopKeys.all, "categories", shopId, params] as const,
   delivery: (shopId: string) => [...shopKeys.all, "delivery", shopId] as const,
   subscription: (shopId: string) =>
     [...shopKeys.all, "subscription", shopId] as const,
@@ -111,6 +114,14 @@ export function shopProductsQuery(
             pageSize: params?.limit,
           })
         : listShopProducts(shopId, params),
+    enabled: Boolean(shopId),
+  });
+}
+
+export function shopCategoriesQuery(shopId: string) {
+  return queryOptions({
+    queryKey: shopKeys.categories(shopId, { all: true }),
+    queryFn: () => listAllShopCategories(shopId),
     enabled: Boolean(shopId),
   });
 }

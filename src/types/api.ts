@@ -411,6 +411,31 @@ export type BulkShopProductResult = {
   summary: { total: number; succeeded: number; failed: number };
 };
 
+export type ShopCategory = {
+  id?: string | number;
+  shop_id?: string;
+  category_name?: string | null;
+  category_name_alt?: string | null;
+  parent_id?: number | null;
+  sort_order?: number | null;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type BulkShopCategoryRowResult = {
+  index: number;
+  ok: boolean;
+  category_id: number | null;
+  error_code: string | null;
+  message: string | null;
+};
+
+export type BulkShopCategoryResult = {
+  results: BulkShopCategoryRowResult[];
+  summary: { total: number; succeeded: number; failed: number };
+};
+
 export type ShopActivityEvent = {
   at?: string;
   event?: string;

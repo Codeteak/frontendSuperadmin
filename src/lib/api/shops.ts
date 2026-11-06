@@ -11,11 +11,15 @@ import {
   mockGetNextShopUserId,
   mockGetShopActivity,
   mockBulkCreateShopProducts,
+  mockBulkDeleteShopCategories,
   mockBulkDeleteShopProducts,
   mockBulkUpdateShopProducts,
+  mockCreateShopCategory,
   mockCreateShopProduct,
+  mockDeleteShopCategory,
   mockDeleteShopProduct,
   mockGetShopProduct,
+  mockListShopCategories,
   mockListShopProducts,
   mockListShops,
   mockPatchShop,
@@ -41,6 +45,8 @@ import type {
   ShopDetail,
   ShopEcomSettings,
   ShopListItem,
+  BulkShopCategoryResult,
+  ShopCategory,
   ShopProduct,
   ShopProductCreateInput,
   ShopProductUpdateInput,
@@ -586,6 +592,119 @@ export function bulkUpdateShopProducts(
     {
       method: "POST",
       body: JSON.stringify({ rows }),
+    },
+  );
+}
+
+export function listShopCategories(
+  shopId: string,
+  params?: { page?: number; limit?: number; q?: string },
+) {
+  if (isDevelopmentMode()) return mockListShopCategories(shopId, params);
+  return apiFetch<Paginated<ShopCategory> | ShopCategory[]>(
+    `/v2/shops/${shopId}/categories`,
+    { params },
+  ).then((data) => {
+    if (Array.isArray(data)) {
+      return {
+        items: data,
+        total: data.length,
+        page: params?.page ?? 1,
+        limit: params?.limit ?? data.length,
+      } satisfies Paginated<ShopCategory>;
+    }
+    return {
+      items: data.items ?? [],
+      total: data.total ?? data.items?.length ?? 0,
+      page: data.page ?? params?.page ?? 1,
+      limit: data.limit ?? params?.limit,
+      total_pages: data.total_pages,
+    } satisfies Paginated<ShopCategory>;
+  });
+}
+
+const SHOP_CATEGORIES_PAGE_SIZE = 100;
+
+export async function listAllShopCategories(
+  shopId: string,
+  params?: { q?: string; pageSize?: number },
+) {
+  const pageSize = Math.min(
+    Math.max(params?.pageSize ?? SHOP_CATEGORIES_PAGE_SIZE, 1),
+    SHOP_CATEGORIES_PAGE_SIZE,
+  );
+  const all: ShopCategory[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const data = await listShopCategories(shopId, {
+      page,
+      limit: pageSize,
+      q: params?.q,
+    });
+    const items = data.items ?? [];
+    all.push(...items);
+    totalPages =
+      data.total_pages ??
+      (data.total != null ? Math.ceil(data.total / pageSize) : 1);
+    if (items.length < pageSize) break;
+    page += 1;
+  } while (page <= totalPages && page <= 50);
+
+  return {
+    items: all,
+    total: all.length,
+    page: 1,
+    limit: all.length,
+  } satisfies Paginated<ShopCategory>;
+}
+
+export function createShopCategory(
+  shopId: string,
+  input: { category_name: string; category_name_alt?: string | null; parent_id?: number | null; sort_order?: number; status?: "active" | "blocked" },
+) {
+  if (isDevelopmentMode()) return mockCreateShopCategory(shopId, input);
+  return apiFetch<ShopCategory & { restored?: boolean; warning?: string | null }>(
+    `/v2/shops/${shopId}/categories`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function deleteShopCategory(
+  shopId: string,
+  categoryId: number | string,
+  hard = false,
+) {
+  if (isDevelopmentMode()) return mockDeleteShopCategory(shopId, categoryId, hard);
+  return apiFetch<ShopCategory | { deleted: true; mode: "hard"; category_id: number }>(
+    `/v2/shops/${shopId}/categories/${categoryId}`,
+    {
+      method: "DELETE",
+      params: { mode: hard ? "hard" : "soft" },
+    },
+  );
+}
+
+export function bulkDeleteShopCategories(
+  shopId: string,
+  categoryIds: number[],
+  hard = false,
+) {
+  if (isDevelopmentMode()) {
+    return mockBulkDeleteShopCategories(shopId, categoryIds, hard);
+  }
+  return apiFetch<BulkShopCategoryResult>(
+    `/v2/shops/${shopId}/categories/bulk-delete`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        category_ids: categoryIds,
+        mode: hard ? "hard" : "soft",
+      }),
     },
   );
 }

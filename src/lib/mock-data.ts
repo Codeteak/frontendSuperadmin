@@ -36,9 +36,11 @@ import type {
   ShopDetail,
   ShopEcomSettings,
   ShopListItem,
+  ShopCategory,
   ShopProduct,
   ShopProductCreateInput,
   ShopProductUpdateInput,
+  BulkShopCategoryResult,
   BulkShopProductResult,
   TriggerShopLogoutResponse,
 } from "@/types/api";
@@ -167,6 +169,25 @@ const mockShops: ShopListItem[] = [
     },
     created_at: "2026-01-01T08:00:00Z",
     updated_at: "2026-07-25T10:00:00Z",
+  },
+];
+
+const mockCategories: ShopCategory[] = [
+  {
+    id: 10,
+    category_name: "Mains",
+    category_name_alt: null,
+    parent_id: null,
+    sort_order: 1,
+    status: "active",
+  },
+  {
+    id: 11,
+    category_name: "Wraps",
+    category_name_alt: null,
+    parent_id: null,
+    sort_order: 2,
+    status: "active",
   },
 ];
 
@@ -1165,6 +1186,107 @@ export async function mockGetShopActivity(): Promise<ShopActivityResponse> {
         { at: "17:55", event: "Catalog sync completed for Marina Bites" },
         { at: "17:10", event: "Invoice INV-2402 generated" },
       ],
+    },
+  });
+}
+
+export async function mockListShopCategories(
+  _shopId: string,
+  params?: { q?: string },
+): Promise<Paginated<ShopCategory>> {
+  let items = [...mockCategories];
+  if (params?.q) {
+    const q = params.q.toLowerCase();
+    items = items.filter((row) =>
+      String(row.category_name ?? "")
+        .toLowerCase()
+        .includes(q),
+    );
+  }
+  return delay({ items, total: items.length, page: 1, limit: 100 });
+}
+
+export async function mockCreateShopCategory(
+  shopId: string,
+  input: { category_name: string },
+): Promise<ShopCategory> {
+  const name = input.category_name.trim();
+  const existing = mockCategories.find(
+    (row) => String(row.category_name ?? "").trim().toLowerCase() === name.toLowerCase(),
+  );
+  if (existing) {
+    throw Object.assign(new Error(`Category "${name}" already exists (id ${existing.id})`), {
+      status: 422,
+      code: "category_already_exists",
+    });
+  }
+  const created: ShopCategory = {
+    id: Math.max(0, ...mockCategories.map((row) => Number(row.id) || 0)) + 1,
+    shop_id: shopId,
+    category_name: name,
+    category_name_alt: null,
+    parent_id: null,
+    sort_order: mockCategories.length + 1,
+    status: "active",
+  };
+  mockCategories.push(created);
+  return delay(created);
+}
+
+export async function mockDeleteShopCategory(
+  _shopId: string,
+  categoryId: number | string,
+  _hard = false,
+): Promise<ShopCategory> {
+  const id = Number(categoryId);
+  const index = mockCategories.findIndex((row) => Number(row.id) === id);
+  if (index < 0) {
+    throw Object.assign(new Error("Category not found"), {
+      status: 404,
+      code: "category_not_found",
+    });
+  }
+  const [removed] = mockCategories.splice(index, 1);
+  return delay({ ...removed! });
+}
+
+export async function mockBulkDeleteShopCategories(
+  shopId: string,
+  categoryIds: number[],
+  hard = false,
+): Promise<BulkShopCategoryResult> {
+  const unique = [...new Set(categoryIds)].sort((a, b) => a - b);
+  const results = [];
+  for (let i = 0; i < unique.length; i += 1) {
+    const categoryId = unique[i]!;
+    try {
+      await mockDeleteShopCategory(shopId, categoryId, hard);
+      results.push({
+        index: i,
+        ok: true,
+        category_id: categoryId,
+        error_code: null,
+        message: null,
+      });
+    } catch (error) {
+      results.push({
+        index: i,
+        ok: false,
+        category_id: categoryId,
+        error_code:
+          error && typeof error === "object" && "code" in error
+            ? String((error as { code: unknown }).code)
+            : "category_delete_failed",
+        message: error instanceof Error ? error.message : "Unable to delete category",
+      });
+    }
+  }
+  return delay({
+    results,
+    summary: {
+      total: results.length,
+      succeeded: results.filter((row) => row.ok).length,
+      failed: results.filter((row) => !row.ok).length,
     },
   });
 }

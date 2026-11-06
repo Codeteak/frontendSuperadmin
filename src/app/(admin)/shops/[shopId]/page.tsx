@@ -20,6 +20,7 @@ import { ShopProfileHero } from "@/components/shops/shop-profile-hero";
 import { ShopEcomTab } from "@/components/shops/shop-ecom-tab";
 import { ShopPosTab } from "@/components/shops/shop-pos-tab";
 import { ShopWhatsAppTab } from "@/components/shops/shop-whatsapp-tab";
+import { ShopCategoriesTab } from "@/components/shops/shop-categories-tab";
 import { ShopProductsTab } from "@/components/shops/shop-products-tab";
 import {
   ShopConfirmDialog,
@@ -124,6 +125,7 @@ const TABS = [
   "features",
   "ecom",
   "products",
+  "categories",
   "delivery",
   "subscription",
   "promotion",
@@ -140,6 +142,7 @@ const TAB_LABELS: Record<Tab, string> = {
   features: "Features",
   ecom: "Ecom",
   products: "Products",
+  categories: "Categories",
   delivery: "Delivery",
   subscription: "Subscription",
   promotion: "Promotion",
@@ -548,6 +551,7 @@ export default function ShopDetailPage() {
           <ShopEcomTab shop={shop} onSaved={loadShop} />
         ) : null}
         {tab === "products" ? <ShopProductsTab shopId={shopId} /> : null}
+        {tab === "categories" ? <ShopCategoriesTab shopId={shopId} /> : null}
         {tab === "delivery" ? (
           <DeliveryTab shopId={shopId} shop={shop} onSaved={loadShop} />
         ) : null}
