@@ -628,6 +628,10 @@ export type PosShopLink = {
   catalog_sync_enabled?: boolean;
   order_push_enabled?: boolean;
   order_pull_enabled?: boolean;
+  /** Saleculator only: shop | saleculator_v2 */
+  menu_owner?: "shop" | "saleculator_v2" | string | null;
+  /** Saleculator only: POS catalog / outlet id bound for menu sync v2 */
+  source_catalog_id?: string | null;
   last_catalog_sync_at?: string | null;
   last_order_sync_at?: string | null;
   sync_error?: string | null;
@@ -690,6 +694,10 @@ export type AttachPosShopLinkInput = {
   order_push_enabled?: boolean;
   order_pull_enabled?: boolean;
   capabilities?: Record<string, unknown>;
+  /** Saleculator only — ignored/rejected for other providers */
+  menu_owner?: "shop" | "saleculator_v2";
+  /** Required when menu_owner is saleculator_v2 */
+  source_catalog_id?: string | null;
 };
 
 /** PATCH /v2/pos/shops/:shopId/link/features — at least one field required. */

@@ -198,6 +198,8 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
     channel: "Yaadro",
     credentials_plaintext: "",
     webhook_secret: "",
+    menu_owner: "shop" as "shop" | "saleculator_v2",
+    source_catalog_id: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
@@ -267,6 +269,16 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
       channel: typeof api.channel === "string" ? api.channel : "Yaadro",
       credentials_plaintext: "",
       webhook_secret: "",
+      menu_owner:
+        existing.provider === "saleculator" &&
+        existing.menu_owner === "saleculator_v2"
+          ? "saleculator_v2"
+          : "shop",
+      source_catalog_id:
+        existing.provider === "saleculator" &&
+        typeof existing.source_catalog_id === "string"
+          ? existing.source_catalog_id
+          : "",
     });
   }, [linkQuery.data]);
 
@@ -312,6 +324,10 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
             channel: "1",
           }
         : {}),
+      // Menu ownership is Saleculator-only; reset when switching templates.
+      ...(provider === "saleculator"
+        ? {}
+        : { menu_owner: "shop" as const, source_catalog_id: "" }),
     }));
   }
 
@@ -399,6 +415,17 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
       appToast.error(msg);
       return;
     }
+    if (
+      selectedProvider === "saleculator" &&
+      form.menu_owner === "saleculator_v2" &&
+      !form.source_catalog_id.trim()
+    ) {
+      const msg =
+        "Source catalog ID is required when menu ownership is Saleculator v2.";
+      setError(msg);
+      appToast.error(msg);
+      return;
+    }
 
     const account = form.account.trim();
     const location = form.location.trim();
@@ -479,6 +506,16 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
           : {}),
         ...(form.webhook_secret.trim()
           ? { webhook_secret: form.webhook_secret.trim() }
+          : {}),
+        // Only send for Saleculator — other providers must not carry these fields.
+        ...(selectedProvider === "saleculator"
+          ? {
+              menu_owner: form.menu_owner,
+              source_catalog_id:
+                form.menu_owner === "saleculator_v2"
+                  ? form.source_catalog_id.trim()
+                  : null,
+            }
           : {}),
       });
       appToast.success("POS link attached.");
@@ -766,6 +803,60 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
               <Input value={form.connector_type} readOnly />
             </Field>
           </div>
+
+          {selectedProvider === "saleculator" ? (
+            <div className="space-y-4 rounded-xl border p-4">
+              <div>
+                <p className="text-sm font-medium">Saleculator menu ownership</p>
+                <p className="text-xs text-muted-foreground">
+                  Leave as Shop-owned for the normal pull lane. Choose Saleculator
+                  v2 only when this till publishes menu/availability via{" "}
+                  <code className="text-xs">/api/v2/pos</code>.
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field
+                  label="Menu owner"
+                  hint="saleculator_v2 locks the dashboard catalog as read-only."
+                >
+                  <select
+                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                    value={form.menu_owner}
+                    onChange={(e) => {
+                      const menu_owner = e.target.value as
+                        | "shop"
+                        | "saleculator_v2";
+                      setForm({
+                        ...form,
+                        menu_owner,
+                        source_catalog_id:
+                          menu_owner === "saleculator_v2"
+                            ? form.source_catalog_id
+                            : "",
+                      });
+                    }}
+                  >
+                    <option value="shop">Shop (default)</option>
+                    <option value="saleculator_v2">Saleculator v2</option>
+                  </select>
+                </Field>
+                <Field
+                  label="Source catalog ID"
+                  hint="POS outlet / catalog id Saleculator sends as source_catalog_id."
+                >
+                  <Input
+                    value={form.source_catalog_id}
+                    onChange={(e) =>
+                      setForm({ ...form, source_catalog_id: e.target.value })
+                    }
+                    placeholder="restaurant-01"
+                    required={form.menu_owner === "saleculator_v2"}
+                    disabled={form.menu_owner !== "saleculator_v2"}
+                  />
+                </Field>
+              </div>
+            </div>
+          ) : null}
 
           {(preset?.requiresBaseUrl || form.order_push_enabled) && (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1092,6 +1183,18 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
               { label: "Provider", value: link.provider },
               { label: "Connector", value: link.connector_type },
               { label: "Lane", value: link.lane },
+              ...(link.provider === "saleculator"
+                ? [
+                    {
+                      label: "Menu owner",
+                      value: link.menu_owner ?? "shop",
+                    },
+                    {
+                      label: "Source catalog ID",
+                      value: link.source_catalog_id ?? null,
+                    },
+                  ]
+                : []),
               { label: "Active", value: yesNo(link.is_active) },
               {
                 label: "Catalog sync",

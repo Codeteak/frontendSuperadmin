@@ -2313,6 +2313,42 @@ export async function mockAttachShopLink(
 
   const existing = mockShopLinks[shopId];
   const now = new Date().toISOString();
+  const isSaleculator = provider === "saleculator";
+  let menuOwner: "shop" | "saleculator_v2" = "shop";
+  let sourceCatalogId: string | null = null;
+  if (!isSaleculator) {
+    menuOwner = "shop";
+    sourceCatalogId = null;
+  } else if (input.menu_owner === undefined) {
+    menuOwner =
+      existing?.menu_owner === "saleculator_v2" ? "saleculator_v2" : "shop";
+    sourceCatalogId =
+      input.source_catalog_id !== undefined
+        ? input.source_catalog_id?.trim() || null
+        : (existing?.source_catalog_id ?? null);
+    if (menuOwner !== "saleculator_v2") {
+      sourceCatalogId = null;
+    }
+  } else if (input.menu_owner === "saleculator_v2") {
+    menuOwner = "saleculator_v2";
+    sourceCatalogId = input.source_catalog_id?.trim() || null;
+  } else {
+    menuOwner = "shop";
+    sourceCatalogId = null;
+  }
+  if (menuOwner === "saleculator_v2" && !sourceCatalogId) {
+    throw Object.assign(
+      new Error("source_catalog_id is required when menu_owner is saleculator_v2"),
+      {
+        status: 400,
+        body: {
+          code: "source_catalog_id_required",
+          message:
+            "source_catalog_id is required when menu_owner is saleculator_v2",
+        },
+      },
+    );
+  }
   const link: PosShopLink = {
     id: existing?.id ?? ++mockShopLinkSeq,
     shop_id: shopId,
@@ -2334,6 +2370,8 @@ export async function mockAttachShopLink(
     catalog_sync_enabled,
     order_push_enabled,
     order_pull_enabled,
+    menu_owner: menuOwner,
+    source_catalog_id: sourceCatalogId,
     last_catalog_sync_at: existing?.last_catalog_sync_at ?? null,
     last_order_sync_at: existing?.last_order_sync_at ?? null,
     sync_error: null,
