@@ -273,7 +273,7 @@ export const POS_DEFAULT_CAPABILITIES: Record<PosProvider, PosCapabilities> = {
     catalog: "pull_combined",
     orders_out: "push",
     orders_in: "webhook",
-    status_out: "push",
+    status_out: "none",
     status_in: "webhook",
     riders: "inbound",
   },
@@ -305,16 +305,8 @@ export const POS_DEFAULT_CAPABILITIES: Record<PosProvider, PosCapabilities> = {
 
 export const POS_DEFAULT_EVENTS: Record<PosProvider, PosEvents> = {
   cratis: {
-    order_create_on: ["blank_created"],
-    status_out_on: [
-      "Accepted",
-      "Assigned",
-      "Picked Up",
-      "Out for Delivery",
-      "Delivered",
-      "cancelled",
-      "Rejected",
-    ],
+    order_create_on: ["blank_created", "customer_order_created"],
+    status_out_on: [],
   },
   saleculator: {
     order_create_on: [],

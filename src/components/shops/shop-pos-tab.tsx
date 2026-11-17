@@ -317,9 +317,10 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
         ? {
             base_url: "https://online.cratis.live",
             auth_type: "bearer",
-            provider_slug: "cratis_test",
-            menu_path: "/cratis_test/pos/",
-            orders_path: "/cratis_test/orders/",
+            // Doc/test default; Cratis-issued slug (later prod may be yaadro via this field).
+            provider_slug: "hnc",
+            menu_path: "/cratis/pos/",
+            orders_path: "/hnc/orders/",
             timezone: "Asia/Dubai",
             channel: "1",
           }
@@ -390,7 +391,7 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
     const providerSlug = form.provider_slug.trim().toLowerCase();
     if (selectedProvider === "cratis" && !/^[a-z0-9][a-z0-9_-]*$/.test(providerSlug)) {
       const msg =
-        "Cratis provider slug is required (letters, numbers, _ or -). Use cratis_test now and yaadro in production.";
+        "Cratis provider slug is required (letters, numbers, _ or -). Use the slug Cratis issued (doc/test: hnc; later may be yaadro).";
       setError(msg);
       appToast.error(msg);
       return;
@@ -429,8 +430,9 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
 
     const account = form.account.trim();
     const location = form.location.trim();
+    // Handover: menu is fixed at /cratis/pos/; orders use /{providerSlug}/orders/.
     const menuPath =
-      selectedProvider === "cratis" ? `/${providerSlug}/pos/` : form.menu_path.trim();
+      selectedProvider === "cratis" ? "/cratis/pos/" : form.menu_path.trim();
     const ordersPath =
       selectedProvider === "cratis"
         ? `/${providerSlug}/orders/`
@@ -899,14 +901,14 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field
                   label="Provider slug"
-                  hint="Used in the URL and the order by field. cratis_test now, yaadro in production."
+                  hint="Cratis-issued provider name for /{slug}/orders/ and order by. Doc/test: hnc. Production may later be yaadro."
                 >
                   <Input
                     value={form.provider_slug}
                     onChange={(e) =>
                       setForm({ ...form, provider_slug: e.target.value })
                     }
-                    placeholder="cratis_test"
+                    placeholder="hnc"
                     required
                   />
                 </Field>
@@ -920,15 +922,11 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
                     readOnly
                   />
                 </Field>
-                <Field label="Menu URL">
-                  <Input
-                    value={
-                      form.provider_slug.trim()
-                        ? `/${form.provider_slug.trim().toLowerCase()}/pos/`
-                        : ""
-                    }
-                    readOnly
-                  />
+                <Field
+                  label="Menu URL"
+                  hint="Fixed Cratis menu path (not under the order slug)."
+                >
+                  <Input value="/cratis/pos/" readOnly />
                 </Field>
                 <Field
                   label="Cratis account"
@@ -956,13 +954,16 @@ function ShopPosTabContent({ shopId }: { shopId: string }) {
                     required
                   />
                 </Field>
-                <Field label="Brand ID" hint="Restaurant brand shown to Cratis.">
+                <Field
+                  label="Brand ID"
+                  hint="Optional Cratis store id as text (only set if Cratis gave one)."
+                >
                   <Input
                     value={form.brand_id}
                     onChange={(e) =>
                       setForm({ ...form, brand_id: e.target.value })
                     }
-                    placeholder="Hot N Cool"
+                    placeholder="store id from Cratis"
                   />
                 </Field>
                 <Field label="Timezone">
